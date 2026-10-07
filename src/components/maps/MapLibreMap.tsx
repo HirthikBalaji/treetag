@@ -13,6 +13,12 @@ import {
   TreePine,
   ExternalLink,
   ShieldAlert,
+  Compass,
+  MapPin,
+  Mountain,
+  Globe,
+  Sun,
+  Moon,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCoordinates } from "@/lib/geo";
@@ -38,7 +44,7 @@ interface MapLibreMapProps {
   height?: string;
   selectable?: boolean;
   selectedCoordinates?: [number, number] | null; // [lng, lat]
-  onCoordinatesChange?: (coords: { lat: number; lng: number }) => void;
+  onCoordinatesChange?: (coords: { lat: number; lng: number; address?: string }) => void;
   selectedTreeId?: string | null;
   onTreeSelect?: (treeId: string) => void;
   showHeatmapToggle?: boolean;
@@ -46,9 +52,11 @@ interface MapLibreMapProps {
   className?: string;
 }
 
+export type BaseMapLayer = "osm" | "satellite" | "opentopo" | "humanitarian" | "dark";
+
 export function MapLibreMap({
   trees = [],
-  center = [80.2707, 13.0827], // [lng, lat] Chennai default
+  center = [80.2707, 13.0827], // [lng, lat] default
   zoom = 13.5,
   height = "500px",
   selectable = false,
@@ -65,79 +73,161 @@ export function MapLibreMap({
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const selectionMarkerRef = useRef<maplibregl.Marker | null>(null);
 
-  const [activeLayer, setActiveLayer] = useState<"streets" | "satellite" | "dark">("streets");
-  const [showHeatmap, setShowHeatmap] = useState(false);
+  // Default to authentic OpenStreetMap Standard
+  const [activeLayer, setActiveLayer] = useState<BaseMapLayer>("osm");
   const [isLocating, setIsLocating] = useState(false);
   const [activePopupTree, setActivePopupTree] = useState<MapTreePoint | null>(null);
+  const [hoverCoords, setHoverCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [layerMenuOpen, setLayerMenuOpen] = useState(false);
+  const [reverseAddress, setReverseAddress] = useState<string | null>(null);
 
-  // Map Tile styles
-  const TILE_STYLES = {
-    streets: {
-      version: 8 as const,
+  // Real Open-Source Map Tile Providers
+  const TILE_STYLES: Record<BaseMapLayer, maplibregl.StyleSpecification> = {
+    // 1. OpenStreetMap Standard (Official OSM community map)
+    osm: {
+      version: 8,
       sources: {
-        osm: {
-          type: "raster" as const,
+        osmRaster: {
+          type: "raster",
           tiles: [
-            "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+            "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+            "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
           ],
           tileSize: 256,
-          attribution: "© OpenStreetMap contributors © CARTO",
+          maxzoom: 19,
+          attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
         },
       },
       layers: [
         {
-          id: "osm-layer",
-          type: "raster" as const,
-          source: "osm",
+          id: "osm-raster-layer",
+          type: "raster",
+          source: "osmRaster",
           minzoom: 0,
-          maxzoom: 20,
+          maxzoom: 19,
         },
       ],
     },
+
+    // 2. High-Resolution Satellite Orthophoto (Aerial canopy survey)
     satellite: {
-      version: 8 as const,
+      version: 8,
       sources: {
-        satellite: {
-          type: "raster" as const,
+        satelliteRaster: {
+          type: "raster",
           tiles: [
             "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
           ],
           tileSize: 256,
+          maxzoom: 19,
           attribution: "© Esri, Maxar, Earthstar Geographics",
         },
       },
       layers: [
         {
-          id: "satellite-layer",
-          type: "raster" as const,
-          source: "satellite",
+          id: "satellite-raster-layer",
+          type: "raster",
+          source: "satelliteRaster",
           minzoom: 0,
-          maxzoom: 20,
+          maxzoom: 19,
         },
       ],
     },
-    dark: {
-      version: 8 as const,
+
+    // 3. OpenTopoMap (Open-source topographic elevation and contours)
+    opentopo: {
+      version: 8,
       sources: {
-        cartoDark: {
-          type: "raster" as const,
+        topoRaster: {
+          type: "raster",
           tiles: [
-            "https://basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png",
+            "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+            "https://b.tile.opentopomap.org/{z}/{x}/{y}.png",
+            "https://c.tile.opentopomap.org/{z}/{x}/{y}.png",
           ],
           tileSize: 256,
+          maxzoom: 17,
+          attribution: 'Map data: © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, SRTM | Style: © <a href="https://opentopomap.org">OpenTopoMap</a>',
+        },
+      },
+      layers: [
+        {
+          id: "opentopo-raster-layer",
+          type: "raster",
+          source: "topoRaster",
+          minzoom: 0,
+          maxzoom: 17,
+        },
+      ],
+    },
+
+    // 4. Humanitarian OpenStreetMap (High-contrast outdoor field survey)
+    humanitarian: {
+      version: 8,
+      sources: {
+        hotRaster: {
+          type: "raster",
+          tiles: [
+            "https://a.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+            "https://b.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Humanitarian OSM Team',
+        },
+      },
+      layers: [
+        {
+          id: "hot-raster-layer",
+          type: "raster",
+          source: "hotRaster",
+          minzoom: 0,
+          maxzoom: 19,
+        },
+      ],
+    },
+
+    // 5. Dark Mode Eco-GIS (CartoDB Dark Matter)
+    dark: {
+      version: 8,
+      sources: {
+        cartoDarkRaster: {
+          type: "raster",
+          tiles: [
+            "https://a.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png",
+            "https://b.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
           attribution: "© OpenStreetMap contributors © CARTO",
         },
       },
       layers: [
         {
-          id: "carto-dark-layer",
-          type: "raster" as const,
-          source: "cartoDark",
+          id: "carto-dark-raster-layer",
+          type: "raster",
+          source: "cartoDarkRaster",
           minzoom: 0,
-          maxzoom: 20,
+          maxzoom: 19,
         },
       ],
     },
+  };
+
+  // Reverse geocode via OpenStreetMap Nominatim
+  const queryReverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const res = await fetch(`/api/geo/reverse?lat=${lat}&lng=${lng}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.displayName) {
+          setReverseAddress(data.displayName);
+          return data.displayName;
+        }
+      }
+    } catch {}
+    return undefined;
   };
 
   // Initialize Map
@@ -152,6 +242,10 @@ export function MapLibreMap({
       attributionControl: false,
     });
 
+    // Add metric scale bar (real GIS scale)
+    map.addControl(new maplibregl.ScaleControl({ maxWidth: 120, unit: "metric" }), "bottom-left");
+
+    // Add compact attribution control
     map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
     map.on("load", () => {
@@ -159,12 +253,21 @@ export function MapLibreMap({
       renderMarkers();
     });
 
-    // If selectable mode is on, allow click to place pin
+    // Track mouse coordinates
+    map.on("mousemove", (e) => {
+      setHoverCoords({
+        lat: parseFloat(e.lngLat.lat.toFixed(5)),
+        lng: parseFloat(e.lngLat.lng.toFixed(5)),
+      });
+    });
+
+    // Click to place / fine-tune pin
     if (selectable) {
-      map.on("click", (e) => {
+      map.on("click", async (e) => {
         const { lng, lat } = e.lngLat;
+        const address = await queryReverseGeocode(lat, lng);
         if (onCoordinatesChange) {
-          onCoordinatesChange({ lat, lng });
+          onCoordinatesChange({ lat, lng, address });
         }
       });
     }
@@ -177,7 +280,7 @@ export function MapLibreMap({
     };
   }, []);
 
-  // Handle Layer style switch
+  // Handle layer style switch
   useEffect(() => {
     if (!mapRef.current) return;
     mapRef.current.setStyle(TILE_STYLES[activeLayer]);
@@ -194,12 +297,11 @@ export function MapLibreMap({
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Render Tree Markers
+    // Render tree markers
     trees.forEach((tree) => {
       const el = document.createElement("div");
       el.className = "tree-marker-container cursor-pointer transition-transform hover:scale-125";
 
-      // Choose color & icon based on health status
       let bgColor = "#16a34a"; // Healthy
       let ringColor = "rgba(34, 197, 94, 0.4)";
       let pulseAnim = "";
@@ -258,7 +360,7 @@ export function MapLibreMap({
       markersRef.current.push(marker);
     });
 
-    // If there is an active placement selection marker (for tree creation)
+    // Selection pin for tree creation / manual coordinate placement
     if (selectable && selectedCoordinates) {
       if (selectionMarkerRef.current) {
         selectionMarkerRef.current.setLngLat(selectedCoordinates);
@@ -280,7 +382,7 @@ export function MapLibreMap({
               border: 2px solid white;
               box-shadow: 0 4px 14px rgba(0,0,0,0.35);
             ">
-              <span>📍 New Tree</span>
+              <span>📍 Stem Position</span>
             </div>
           </div>
         `;
@@ -292,23 +394,37 @@ export function MapLibreMap({
           .setLngLat(selectedCoordinates)
           .addTo(mapRef.current!);
 
-        selectionMarkerRef.current.on("dragend", () => {
+        selectionMarkerRef.current.on("dragend", async () => {
           if (!selectionMarkerRef.current) return;
           const lngLat = selectionMarkerRef.current.getLngLat();
+          const address = await queryReverseGeocode(lngLat.lat, lngLat.lng);
           if (onCoordinatesChange) {
-            onCoordinatesChange({ lat: lngLat.lat, lng: lngLat.lng });
+            onCoordinatesChange({ lat: lngLat.lat, lng: lngLat.lng, address });
           }
         });
       }
     }
   };
 
-  // Re-render markers when trees or selectedCoordinates change
+  // Re-render markers when tree list or selected tree changes
   useEffect(() => {
     renderMarkers();
-  }, [trees, selectedCoordinates, selectedTreeId]);
+  }, [trees, selectedTreeId, selectedCoordinates]);
 
-  // GPS Device Geolocation handler
+  // Center on selected tree if requested
+  useEffect(() => {
+    if (!selectedTreeId || !mapRef.current) return;
+    const tree = trees.find((t) => t.id === selectedTreeId);
+    if (tree) {
+      mapRef.current.flyTo({
+        center: [tree.longitude, tree.latitude],
+        zoom: Math.max(mapRef.current.getZoom(), 15),
+        essential: true,
+      });
+    }
+  }, [selectedTreeId]);
+
+  // Geolocation trigger
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser");
@@ -317,18 +433,19 @@ export function MapLibreMap({
 
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         setIsLocating(false);
         const { latitude, longitude } = pos.coords;
         if (mapRef.current) {
           mapRef.current.flyTo({
             center: [longitude, latitude],
-            zoom: 16,
+            zoom: 16.5,
             essential: true,
           });
         }
+        const address = await queryReverseGeocode(latitude, longitude);
         if (selectable && onCoordinatesChange) {
-          onCoordinatesChange({ lat: latitude, lng: longitude });
+          onCoordinatesChange({ lat: latitude, lng: longitude, address });
         }
       },
       (err) => {
@@ -339,6 +456,14 @@ export function MapLibreMap({
     );
   };
 
+  const layerOptions: { id: BaseMapLayer; name: string; subtitle: string; icon: any }[] = [
+    { id: "osm", name: "OpenStreetMap", subtitle: "Standard Community Map", icon: Globe },
+    { id: "satellite", name: "Satellite Imagery", subtitle: "High-Res Aerial Orthophoto", icon: Sun },
+    { id: "opentopo", name: "OpenTopoMap", subtitle: "Topography & Contours", icon: Mountain },
+    { id: "humanitarian", name: "Humanitarian (HOT)", subtitle: "Field Survey Contrast", icon: Compass },
+    { id: "dark", name: "Dark Eco-GIS", subtitle: "Night Mode Map", icon: Moon },
+  ];
+
   return (
     <div
       className={`relative w-full rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800 shadow-sm ${className}`}
@@ -346,41 +471,69 @@ export function MapLibreMap({
     >
       <div ref={mapContainerRef} className="w-full h-full" />
 
-      {/* Map Control Toolbar */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-        {/* Layer toggle */}
+      {/* Floating Top Control Toolbar */}
+      <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2">
+        {/* Layer Switcher Trigger & Modal */}
         {showLayerToggle && (
-          <div className="flex bg-white/90 dark:bg-stone-900/90 backdrop-blur-md p-1 rounded-xl border border-stone-200 dark:border-stone-700 shadow-md">
+          <div className="relative">
             <button
-              onClick={() => setActiveLayer("streets")}
-              className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors ${
-                activeLayer === "streets"
-                  ? "bg-emerald-700 text-white"
-                  : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
-              }`}
+              onClick={() => setLayerMenuOpen(!layerMenuOpen)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border border-stone-200 dark:border-stone-700 shadow-md text-xs font-bold text-stone-800 dark:text-stone-200 hover:bg-white transition-all"
+              title="Change Open-Source Map Layer"
             >
-              Streets
+              <Layers className="w-3.5 h-3.5 text-emerald-600" />
+              <span>
+                {activeLayer === "osm"
+                  ? "OpenStreetMap"
+                  : activeLayer === "satellite"
+                  ? "Satellite"
+                  : activeLayer === "opentopo"
+                  ? "OpenTopoMap"
+                  : activeLayer === "humanitarian"
+                  ? "Humanitarian"
+                  : "Dark Mode"}
+              </span>
             </button>
-            <button
-              onClick={() => setActiveLayer("satellite")}
-              className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors ${
-                activeLayer === "satellite"
-                  ? "bg-emerald-700 text-white"
-                  : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
-              }`}
-            >
-              Satellite
-            </button>
-            <button
-              onClick={() => setActiveLayer("dark")}
-              className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors ${
-                activeLayer === "dark"
-                  ? "bg-emerald-700 text-white"
-                  : "text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800"
-              }`}
-            >
-              Dark
-            </button>
+
+            {layerMenuOpen && (
+              <div
+                className="absolute right-0 mt-2 w-64 rounded-2xl bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border border-stone-200 dark:border-stone-700 shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1"
+                onClick={() => setLayerMenuOpen(false)}
+              >
+                <div className="px-2 py-1 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+                    Open-Source Base Maps
+                  </span>
+                  <span className="text-[9px] font-mono text-emerald-600 font-bold">WGS84</span>
+                </div>
+                {layerOptions.map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => setActiveLayer(opt.id)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all ${
+                        activeLayer === opt.id
+                          ? "bg-emerald-700 text-white font-semibold shadow-xs"
+                          : "hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold truncate leading-tight">{opt.name}</p>
+                        <p
+                          className={`text-[10px] truncate ${
+                            activeLayer === opt.id ? "text-emerald-100" : "text-stone-400"
+                          }`}
+                        >
+                          {opt.subtitle}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -388,14 +541,14 @@ export function MapLibreMap({
         <button
           onClick={handleLocateMe}
           disabled={isLocating}
-          className="p-2.5 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-700 shadow-md hover:bg-white text-stone-700 dark:text-stone-200 transition-colors self-end"
-          title="Detect Current GPS Location"
+          className="p-2.5 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-700 shadow-md hover:bg-white text-stone-700 dark:text-stone-200 transition-colors"
+          title="Detect Device GPS Location (Browser Geolocation API)"
         >
           <Locate className={`w-4 h-4 ${isLocating ? "animate-spin text-emerald-600" : ""}`} />
         </button>
 
-        {/* Zoom In/Out */}
-        <div className="flex flex-col bg-white/90 dark:bg-stone-900/90 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-700 shadow-md overflow-hidden self-end">
+        {/* Zoom In/Out Controls */}
+        <div className="flex flex-col bg-white/95 dark:bg-stone-900/95 backdrop-blur-md rounded-xl border border-stone-200 dark:border-stone-700 shadow-md overflow-hidden">
           <button
             onClick={() => mapRef.current?.zoomIn()}
             className="p-2 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-200 transition-colors border-b border-stone-200 dark:border-stone-800"
@@ -413,23 +566,24 @@ export function MapLibreMap({
         </div>
       </div>
 
-      {/* Health legend overlay */}
-      <div className="absolute bottom-4 left-4 z-20 hidden sm:flex items-center gap-3 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 shadow-md text-[11px] text-stone-700 dark:text-stone-300">
-        <span className="font-semibold text-stone-500 uppercase text-[9px] tracking-wider">
-          Canopy Health
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" /> Healthy
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-amber-500" /> Moderate
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-orange-500" /> Poor
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Critical
-        </span>
+      {/* Floating Bottom Left: OpenStreetMap Engine Badge & Live Coordinates */}
+      <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-1.5 pointer-events-none">
+        {/* Live Cursor / Center Coordinates */}
+        {hoverCoords && (
+          <div className="bg-stone-900/85 text-white backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-mono shadow-md border border-white/10 w-fit">
+            <span>Lat: {hoverCoords.lat.toFixed(5)}° • Lng: {hoverCoords.lng.toFixed(5)}°</span>
+          </div>
+        )}
+
+        {/* OpenStreetMap Real Map Badge */}
+        <div className="hidden sm:flex items-center gap-2 bg-white/90 dark:bg-stone-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-700 shadow-md text-[11px] pointer-events-auto">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="font-semibold text-stone-800 dark:text-stone-200">
+            OpenStreetMap (OSM)
+          </span>
+          <span className="text-stone-400">•</span>
+          <span className="text-[10px] font-mono text-stone-500">EPSG:4326</span>
+        </div>
       </div>
 
       {/* Selected Tree Quick Popup Overlay */}

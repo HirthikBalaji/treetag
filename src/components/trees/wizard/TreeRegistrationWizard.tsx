@@ -118,6 +118,7 @@ export function TreeRegistrationWizard() {
   // AI suggestions
   const [aiSuggestions, setAiSuggestions] = useState<AISpeciesMatch[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
 
   // Load projects & species on mount
   useEffect(() => {
@@ -529,7 +530,8 @@ export function TreeRegistrationWizard() {
                     height="240px"
                     selectable={true}
                     selectedCoordinates={[formData.longitude, formData.latitude]}
-                    onCoordinatesChange={({ lat, lng }) => {
+                    onCoordinatesChange={({ lat, lng, address }) => {
+                      if (address) setResolvedAddress(address);
                       setFormData((prev) => ({
                         ...prev,
                         latitude: parseFloat(lat.toFixed(6)),
@@ -538,6 +540,12 @@ export function TreeRegistrationWizard() {
                       }));
                     }}
                   />
+                  {resolvedAddress && (
+                    <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
+                      <span className="font-bold shrink-0">🗺️ OpenStreetMap:</span>
+                      <span className="truncate">{resolvedAddress}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>

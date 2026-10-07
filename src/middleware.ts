@@ -9,6 +9,7 @@ export function middleware(request: NextRequest) {
     pathname === "/login" ||
     pathname === "/register" ||
     pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/geo/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/uploads/");

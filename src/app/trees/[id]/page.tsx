@@ -485,8 +485,8 @@ export default function TreeDetailPage() {
                   ]}
                   center={[tree.longitude, tree.latitude]}
                   zoom={16}
-                  height="260px"
-                  showLayerToggle={false}
+                  height="280px"
+                  showLayerToggle={true}
                 />
 
                 <div className="text-xs text-stone-500 space-y-1 pt-1">

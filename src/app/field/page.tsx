@@ -23,6 +23,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { getPendingQueue, syncPendingQueue, savePendingTree } from "@/lib/offline-sync";
 import { useToast } from "@/components/providers/ToastProvider";
 import { formatCoordinates } from "@/lib/geo";
+import { MapLibreMap } from "@/components/maps/MapLibreMap";
 
 export default function FieldModePage() {
   const router = useRouter();
@@ -248,6 +249,25 @@ export default function FieldModePage() {
                 </span>
               </button>
             </div>
+
+            {currentCoords && (
+              <div className="rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800 mt-2">
+                <MapLibreMap
+                  height="160px"
+                  center={[currentCoords.lng, currentCoords.lat]}
+                  zoom={16.5}
+                  selectable={true}
+                  selectedCoordinates={[currentCoords.lng, currentCoords.lat]}
+                  onCoordinatesChange={({ lat, lng }) => {
+                    setCurrentCoords({
+                      lat: parseFloat(lat.toFixed(6)),
+                      lng: parseFloat(lng.toFixed(6)),
+                    });
+                  }}
+                  showLayerToggle={true}
+                />
+              </div>
+            )}
           </div>
 
           {/* 2. SNAP PHOTO */}
