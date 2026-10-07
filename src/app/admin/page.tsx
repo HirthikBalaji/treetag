@@ -13,7 +13,6 @@ import {
   Sparkles,
   Server,
   Key,
-  Globe,
   RefreshCw,
   UserCheck,
 } from "lucide-react";
@@ -27,7 +26,6 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   const loadUsers = async () => {
     setLoadingUsers(true);
@@ -267,38 +265,6 @@ export default function AdminPage() {
                   .csv
                 </span>
               </a>
-
-              <button
-                type="button"
-                disabled={isSyncing}
-                onClick={async () => {
-                  setIsSyncing(true);
-                  toast.info("Connecting to GBIF Open Access Biodiversity API...");
-                  try {
-                    const res = await fetch("/api/sync/gbif", { method: "POST" });
-                    const d = await res.json();
-                    if (res.ok) {
-                      toast.success(d.message || "Synced real open-source tree records!");
-                      loadUsers();
-                    } else {
-                      toast.error(d.error || "Sync failed");
-                    }
-                  } catch {
-                    toast.error("Network error syncing open data");
-                  } finally {
-                    setIsSyncing(false);
-                  }
-                }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all hover:bg-emerald-100 disabled:opacity-60"
-              >
-                <span className="flex items-center gap-1.5">
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>Ingest Real Open-Source Trees (GBIF API)</span>
-                </span>
-                <span className="font-mono text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded">
-                  {isSyncing ? "Syncing..." : "Sync Live"}
-                </span>
-              </button>
             </div>
           </div>
         </div>

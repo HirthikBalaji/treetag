@@ -16,7 +16,6 @@ import {
   ShieldAlert,
   Clock,
   Sparkles,
-  Globe,
   PlusCircle,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -41,7 +40,6 @@ export default function DashboardPage() {
   const [trees, setTrees] = useState<any[]>([]);
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
@@ -70,25 +68,6 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDashboardData();
   }, []);
-
-  const handleSyncGbif = async () => {
-    setSyncing(true);
-    toast.info("Connecting to GBIF Open Access Biodiversity API...");
-    try {
-      const res = await fetch("/api/sync/gbif", { method: "POST" });
-      const d = await res.json();
-      if (res.ok) {
-        toast.success(d.message || "Synced real open-source tree records!");
-        await fetchDashboardData();
-      } else {
-        toast.error(d.error || "Sync failed");
-      }
-    } catch {
-      toast.error("Network error syncing open data");
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const summary = analytics?.summary || {
     totalTrees: 0,
@@ -167,25 +146,17 @@ export default function DashboardPage() {
                 Your Digital Tree Registry is Clean and Ready
               </h2>
               <p className="text-xs text-stone-300 leading-relaxed">
-                Zero mock records are seeded. You can start surveying field trees using the multi-step capture workflow with GPS detection, or ingest verified open-source botanical occurrences from the Global Biodiversity Information Facility (GBIF).
+                Zero mock records are seeded. You can start surveying field trees using the multi-step capture workflow with device GPS detection, botanical identification, dendrometric measurements, and health assessments.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <div className="flex items-center gap-3 shrink-0">
               <Link
                 href="/trees/new"
-                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-2"
               >
-                + Register First Tree
+                <PlusCircle className="w-4 h-4" />
+                <span>Register First Specimen</span>
               </Link>
-              <button
-                type="button"
-                disabled={syncing}
-                onClick={handleSyncGbif}
-                className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <Globe className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{syncing ? "Ingesting Open Data..." : "Ingest Open Data (GBIF)"}</span>
-              </button>
             </div>
           </div>
         )}

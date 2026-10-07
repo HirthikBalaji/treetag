@@ -63,7 +63,6 @@ export function treesToGeoJSON(trees: any[]): any {
       properties: {
         id: t.id,
         treeCode: t.treeCode,
-        openSourceId: t.openSourceId,
         sourceDataset: t.sourceDataset,
         commonName: t.commonName,
         scientificName: t.scientificName,
@@ -98,8 +97,7 @@ export function treesToGeoJSON(trees: any[]): any {
 export function treesToCSV(trees: any[]): string {
   const headers = [
     "Tree Code",
-    "Open Source ID",
-    "Source Dataset",
+    "Survey Dataset",
     "Common Name",
     "Scientific Name",
     "Family",
@@ -131,8 +129,7 @@ export function treesToCSV(trees: any[]): string {
 
   const rows = trees.map((t) => [
     escapeCSV(t.treeCode),
-    escapeCSV(t.openSourceId || ""),
-    escapeCSV(t.sourceDataset || "TreeTag In-Situ"),
+    escapeCSV(t.sourceDataset || "TreeTag Field Registry"),
     escapeCSV(t.commonName),
     escapeCSV(t.scientificName),
     escapeCSV(t.family),

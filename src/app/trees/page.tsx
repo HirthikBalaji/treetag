@@ -19,7 +19,6 @@ import {
   Sparkles,
   MapPin,
   X,
-  Globe,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TreeHealthBadge } from "@/components/ui/TreeHealthBadge";
@@ -33,7 +32,6 @@ export default function TreesRegistryPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [speciesList, setSpeciesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
 
   // Filters & State
   const [search, setSearch] = useState("");
@@ -85,25 +83,6 @@ export default function TreesRegistryPage() {
       console.error("Failed to load trees:", err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSyncGbif = async () => {
-    setSyncing(true);
-    toast.info("Connecting to GBIF Open Access Biodiversity API...");
-    try {
-      const res = await fetch("/api/sync/gbif", { method: "POST" });
-      const d = await res.json();
-      if (res.ok) {
-        toast.success(d.message || "Synced real open-source tree records!");
-        await fetchTrees();
-      } else {
-        toast.error(d.error || "Sync failed");
-      }
-    } catch {
-      toast.error("Network error syncing open data");
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -358,22 +337,13 @@ export default function TreesRegistryPage() {
                       Your tree registry is currently empty or no records match your filter criteria.
                     </p>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+                  <div className="flex items-center justify-center pt-1">
                     <Link
                       href="/trees/new"
-                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold"
+                      className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold"
                     >
                       + Register Specimen
                     </Link>
-                    <button
-                      type="button"
-                      disabled={syncing}
-                      onClick={handleSyncGbif}
-                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-800 dark:text-stone-200 text-xs font-semibold flex items-center justify-center gap-1.5"
-                    >
-                      <Globe className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{syncing ? "Syncing..." : "Ingest Open Data (GBIF)"}</span>
-                    </button>
                   </div>
                 </div>
               )}
@@ -413,11 +383,6 @@ export default function TreesRegistryPage() {
                             <span className="font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300">
                               {t.treeCode}
                             </span>
-                            {t.openSourceId && (
-                              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-semibold" title={t.sourceDataset}>
-                                {t.openSourceId}
-                              </span>
-                            )}
                           </div>
                           <TreeHealthBadge status={t.healthStatus} size="sm" />
                         </div>
@@ -496,7 +461,7 @@ export default function TreesRegistryPage() {
                           No tree specimens registered
                         </p>
                         <p className="text-[11px] text-stone-400 mt-0.5">
-                          Use "+ Add Tree" or ingest open-source records to populate the table.
+                          Use "+ Add Tree" to register specimens and populate the registry.
                         </p>
                       </td>
                     </tr>
@@ -522,11 +487,6 @@ export default function TreesRegistryPage() {
                         <span className="font-bold text-emerald-800 dark:text-emerald-300 block">
                           {t.treeCode}
                         </span>
-                        {t.openSourceId && (
-                          <span className="text-[9px] text-blue-700 dark:text-blue-300 block" title={t.sourceDataset}>
-                            {t.openSourceId}
-                          </span>
-                        )}
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">

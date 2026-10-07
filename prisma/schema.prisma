@@ -140,10 +140,6 @@ model Tree {
   createdById              String
   updatedById              String?
 
-  // Open Source GIS Provenance
-  openSourceId             String?
-  sourceDataset            String?        @default("TreeTag Field Survey")
-
   // Botanical
   commonName               String
   scientificName           String
