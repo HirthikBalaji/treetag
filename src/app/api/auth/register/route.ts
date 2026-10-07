@@ -27,17 +27,43 @@ export async function POST(req: Request) {
       );
     }
 
+    const userCount = await prisma.user.count();
+    const assignedRole = userCount === 0 ? "ADMIN" : (role || "SURVEYOR");
+
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         name,
         email: email.toLowerCase().trim(),
         passwordHash,
-        organization: organization || "MAHI Club & Green Community",
-        role: role || "SURVEYOR",
+        organization: organization || "TreeTag Sustainability Team",
+        role: assignedRole,
         avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80`,
       },
     });
+
+    // Ensure at least one initial survey project exists for the new organization
+    const projectCount = await prisma.project.count();
+    if (projectCount === 0) {
+      await prisma.project.create({
+        data: {
+          code: "REGISTRY-01",
+          name: "Main Canopy Survey",
+          description: "Primary field survey registry for urban trees and campus flora.",
+          centerLat: 13.0827,
+          centerLng: 80.2707,
+          zoom: 14,
+          areaSqKm: 15.0,
+          organization: user.organization || "TreeTag Registry",
+          members: {
+            create: {
+              userId: user.id,
+              role: "ADMIN",
+            },
+          },
+        },
+      });
+    }
 
     const token = signToken({
       id: user.id,

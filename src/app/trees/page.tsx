@@ -19,6 +19,7 @@ import {
   Sparkles,
   MapPin,
   X,
+  Globe,
 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TreeHealthBadge } from "@/components/ui/TreeHealthBadge";
@@ -32,6 +33,7 @@ export default function TreesRegistryPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [speciesList, setSpeciesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
 
   // Filters & State
   const [search, setSearch] = useState("");
@@ -83,6 +85,25 @@ export default function TreesRegistryPage() {
       console.error("Failed to load trees:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncGbif = async () => {
+    setSyncing(true);
+    toast.info("Connecting to GBIF Open Access Biodiversity API...");
+    try {
+      const res = await fetch("/api/sync/gbif", { method: "POST" });
+      const d = await res.json();
+      if (res.ok) {
+        toast.success(d.message || "Synced real open-source tree records!");
+        await fetchTrees();
+      } else {
+        toast.error(d.error || "Sync failed");
+      }
+    } catch {
+      toast.error("Network error syncing open data");
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -325,8 +346,35 @@ export default function TreesRegistryPage() {
             {/* Left Column: Synchronized Tree List */}
             <div className="lg:col-span-6 space-y-2.5 max-h-[700px] overflow-y-auto pr-1">
               {trees.length === 0 && !loading && (
-                <div className="p-8 text-center bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 text-stone-500">
-                  No trees found matching your current filter criteria.
+                <div className="p-8 text-center bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 space-y-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center mx-auto">
+                    <Trees className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-stone-900 dark:text-white">
+                      No tree specimens found
+                    </h3>
+                    <p className="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
+                      Your tree registry is currently empty or no records match your filter criteria.
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-1">
+                    <Link
+                      href="/trees/new"
+                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold"
+                    >
+                      + Register Specimen
+                    </Link>
+                    <button
+                      type="button"
+                      disabled={syncing}
+                      onClick={handleSyncGbif}
+                      className="w-full sm:w-auto px-4 py-2 rounded-xl bg-stone-100 dark:bg-stone-800 hover:bg-stone-200 text-stone-800 dark:text-stone-200 text-xs font-semibold flex items-center justify-center gap-1.5"
+                    >
+                      <Globe className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{syncing ? "Syncing..." : "Ingest Open Data (GBIF)"}</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -440,6 +488,19 @@ export default function TreesRegistryPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100 dark:divide-stone-800/80">
+                  {trees.length === 0 && !loading && (
+                    <tr>
+                      <td colSpan={8} className="py-12 text-center text-stone-500">
+                        <Trees className="w-8 h-8 text-stone-300 dark:text-stone-600 mx-auto mb-2" />
+                        <p className="font-semibold text-xs text-stone-700 dark:text-stone-300">
+                          No tree specimens registered
+                        </p>
+                        <p className="text-[11px] text-stone-400 mt-0.5">
+                          Use "+ Add Tree" or ingest open-source records to populate the table.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
                   {trees.map((t) => (
                     <tr
                       key={t.id}
@@ -549,6 +610,21 @@ export default function TreesRegistryPage() {
         {/* Card Grid View */}
         {viewMode === "grid" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {trees.length === 0 && !loading && (
+              <div className="col-span-full p-12 text-center bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 text-stone-500 space-y-3">
+                <Trees className="w-10 h-10 text-stone-300 dark:text-stone-600 mx-auto" />
+                <div>
+                  <h3 className="font-bold text-sm text-stone-900 dark:text-white">Tree catalog is empty</h3>
+                  <p className="text-xs text-stone-500 mt-1">Start by registering your first field tree specimen.</p>
+                </div>
+                <Link
+                  href="/trees/new"
+                  className="inline-block px-4 py-2 rounded-xl bg-emerald-700 text-white text-xs font-bold"
+                >
+                  + Register Specimen
+                </Link>
+              </div>
+            )}
             {trees.map((t) => (
               <div
                 key={t.id}

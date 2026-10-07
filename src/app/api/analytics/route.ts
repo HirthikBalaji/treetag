@@ -123,18 +123,28 @@ export async function GET() {
     ]);
 
     // Monthly growth trends (last 6 months)
-    const monthlyTrends = [
-      { month: "May", count: Math.max(4, Math.round(totalTrees * 0.12)) },
-      { month: "Jun", count: Math.max(8, Math.round(totalTrees * 0.22)) },
-      { month: "Jul", count: Math.max(15, Math.round(totalTrees * 0.45)) },
-      { month: "Aug", count: Math.max(26, Math.round(totalTrees * 0.65)) },
-      { month: "Sep", count: Math.max(41, Math.round(totalTrees * 0.85)) },
-      { month: "Oct", count: totalTrees },
-    ];
+    const monthlyTrends =
+      totalTrees > 0
+        ? [
+            { month: "May", count: Math.round(totalTrees * 0.12) },
+            { month: "Jun", count: Math.round(totalTrees * 0.22) },
+            { month: "Jul", count: Math.round(totalTrees * 0.45) },
+            { month: "Aug", count: Math.round(totalTrees * 0.65) },
+            { month: "Sep", count: Math.round(totalTrees * 0.85) },
+            { month: "Oct", count: totalTrees },
+          ]
+        : [
+            { month: "May", count: 0 },
+            { month: "Jun", count: 0 },
+            { month: "Jul", count: 0 },
+            { month: "Aug", count: 0 },
+            { month: "Sep", count: 0 },
+            { month: "Oct", count: 0 },
+          ];
 
     // Computed Biodiversity Intelligence metrics:
-    // Simpson Diversity Index approximation: 1 - sum(n*(n-1)) / (N*(N-1))
-    let simpsonIndex = 0.88;
+    // Simpson Diversity Index: 1 - sum(n*(n-1)) / (N*(N-1))
+    let simpsonIndex = 0;
     if (totalTrees > 1) {
       let sumN = 0;
       distinctSpecies.forEach((s) => {
@@ -181,11 +191,16 @@ export async function GET() {
         inspections: c._count.inspections,
       })),
       biodiversityInsights: {
-        mostPrevalentSpecies: topSpecies[0]?.scientificName || "Azadirachta indica",
-        highestRiskSpecies: "Delonix regia",
+        mostPrevalentSpecies: topSpecies[0]?.scientificName || "None registered yet",
+        highestRiskSpecies: totalTrees > 0 ? "Delonix regia" : "None",
         nativeCoveragePercentage: nativePercentage,
         canopyCoverSqMeters: totalTrees * 42,
-        priorityAction: `${criticalTrees} specimens require critical arborist stabilization.`,
+        priorityAction:
+          criticalTrees > 0
+            ? `${criticalTrees} specimens require critical arborist stabilization.`
+            : totalTrees > 0
+            ? "All cataloged trees within safe arboricultural thresholds."
+            : "No specimens cataloged yet. Add tree records to begin health monitoring.",
       },
     });
   } catch (error) {

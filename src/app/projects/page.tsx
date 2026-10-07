@@ -116,6 +116,22 @@ export default function ProjectsPage() {
 
         {/* Projects Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {projects.length === 0 && !loading && (
+            <div className="col-span-full p-12 text-center bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 text-stone-500 space-y-3">
+              <FolderKanban className="w-10 h-10 text-stone-300 dark:text-stone-600 mx-auto" />
+              <div>
+                <h3 className="font-bold text-sm text-stone-900 dark:text-white">No survey projects active</h3>
+                <p className="text-xs text-stone-500 mt-1">Create your first survey project zone to organize tree records.</p>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Survey Project</span>
+              </button>
+            </div>
+          )}
           {projects.map((p) => (
             <div
               key={p.id}

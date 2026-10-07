@@ -13,13 +13,64 @@ import {
   Sparkles,
   Server,
   Key,
+  Globe,
+  RefreshCw,
+  UserCheck,
 } from "lucide-react";
-import { useAuth, DEMO_USERS } from "@/components/providers/AuthProvider";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { useToast } from "@/components/providers/ToastProvider";
+import { format } from "date-fns";
 
 export default function AdminPage() {
-  const { user, switchDemoUser } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const [users, setUsers] = useState<any[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch("/api/admin/users");
+      if (res.ok) {
+        const d = await res.json();
+        setUsers(d.users || []);
+      }
+    } catch (err) {
+      console.error("Failed to load users:", err);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setUpdatingUserId(userId);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, role: newRole }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`User role updated to ${newRole}`);
+        setUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+        );
+      } else {
+        toast.error(data.error || "Failed to update role");
+      }
+    } catch {
+      toast.error("Network error while updating role");
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
 
   return (
     <AppLayout>
@@ -38,56 +89,119 @@ export default function AdminPage() {
           </h1>
         </div>
 
-        {/* Current Identity & Role Switcher */}
+        {/* Current Active Account Card */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold text-lg shadow-xs">
+              <Shield className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base text-stone-900 dark:text-white">
+                  {user?.name || "System Administrator"}
+                </h3>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                  {user?.role || "ADMIN"}
+                </span>
+              </div>
+              <p className="text-xs text-stone-500">
+                {user?.email} • {user?.organization || "MAHI Club"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-stone-500">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Authenticated Session Active</span>
+          </div>
+        </div>
+
+        {/* Live User Directory & RBAC Management */}
         <div className="p-6 rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-bold text-sm text-stone-900 dark:text-white">
-                Active User Identity & RBAC Simulation
-              </h3>
+              <Users className="w-5 h-5 text-emerald-600" />
+              <div>
+                <h3 className="font-bold text-sm text-stone-900 dark:text-white">
+                  User Directory & Role-Based Access Control (RBAC)
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Manage registered contributors, field surveyors, and administrative authority.
+                </p>
+              </div>
             </div>
-            <span className="text-xs font-mono text-emerald-700 dark:text-emerald-400 font-bold">
-              {user?.role || "SURVEYOR"}
-            </span>
+            <button
+              onClick={loadUsers}
+              disabled={loadingUsers}
+              className="p-1.5 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-500"
+              title="Refresh User Directory"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingUsers ? "animate-spin" : ""}`} />
+            </button>
           </div>
 
-          <p className="text-xs text-stone-500 leading-relaxed">
-            Switch between authenticated demo roles with 1 click to test permissions across Admin, Project Manager, Surveyor, and Read-Only Viewer.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-            {(
-              [
-                { role: "ADMIN", name: "Hirthik Sharma", desc: "Full permissions & system deletion" },
-                { role: "PROJECT_MANAGER", name: "Dr. Sunita Rao", desc: "Project & inspection oversight" },
-                { role: "SURVEYOR", name: "Arjun Patel", desc: "Add trees, upload photos, surveys" },
-                { role: "VIEWER", name: "Ananya Iyer", desc: "Read-only access to GIS records" },
-              ] as const
-            ).map((item) => (
-              <div
-                key={item.role}
-                onClick={() => switchDemoUser(item.role)}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                  user?.role === item.role
-                    ? "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500 shadow-xs"
-                    : "bg-stone-50 dark:bg-stone-800/40 border-stone-200 dark:border-stone-800 hover:border-emerald-500/50"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
-                    {item.role}
-                  </span>
-                  {user?.role === item.role && (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  )}
-                </div>
-                <h4 className="font-bold text-xs text-stone-900 dark:text-white mt-2">
-                  {item.name}
-                </h4>
-                <p className="text-[11px] text-stone-500 mt-0.5">{item.desc}</p>
-              </div>
-            ))}
+          <div className="overflow-x-auto pt-2">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950 font-semibold text-stone-500 uppercase tracking-wider text-[10px]">
+                  <th className="py-2.5 px-3">Contributor</th>
+                  <th className="py-2.5 px-3">Organization</th>
+                  <th className="py-2.5 px-3">Registered On</th>
+                  <th className="py-2.5 px-3">Field Records</th>
+                  <th className="py-2.5 px-3 text-right">System Role</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 dark:divide-stone-800/80">
+                {users.map((u) => (
+                  <tr key={u.id} className="hover:bg-stone-50/50 dark:hover:bg-stone-800/40">
+                    <td className="py-3 px-3">
+                      <div className="font-bold text-stone-900 dark:text-white">
+                        {u.name}
+                      </div>
+                      <div className="text-[11px] text-stone-500">{u.email}</div>
+                    </td>
+                    <td className="py-3 px-3 text-stone-600 dark:text-stone-300">
+                      {u.organization || "—"}
+                    </td>
+                    <td className="py-3 px-3 text-stone-500 text-[11px]">
+                      {format(new Date(u.createdAt), "MMM d, yyyy")}
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400 font-mono">
+                          {u._count?.createdTrees || 0}
+                        </span>
+                        <span className="text-[10px] text-stone-400">trees</span>
+                        <span className="text-stone-300">•</span>
+                        <span className="font-semibold text-blue-600 font-mono">
+                          {u._count?.inspections || 0}
+                        </span>
+                        <span className="text-[10px] text-stone-400">surveys</span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <select
+                        value={u.role}
+                        disabled={updatingUserId === u.id}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        className="text-xs px-2.5 py-1 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 font-semibold text-stone-800 dark:text-stone-200 outline-none focus:border-emerald-500"
+                      >
+                        <option value="ADMIN">ADMIN (Full Access)</option>
+                        <option value="PROJECT_MANAGER">PROJECT MANAGER</option>
+                        <option value="SURVEYOR">SURVEYOR (Field Contributor)</option>
+                        <option value="VIEWER">VIEWER (Read-Only)</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 && !loadingUsers && (
+                  <tr>
+                    <td colSpan={5} className="py-6 text-center text-stone-500">
+                      No registered users found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -106,7 +220,7 @@ export default function AdminPage() {
                 <span className="font-bold text-stone-800 dark:text-stone-200">PostgreSQL 15</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-stone-100 dark:border-stone-800">
-                <span className="text-stone-500">Spatial Indexing</span>
+                <span className="text-stone-500">Spatial Coordinate System</span>
                 <span className="font-mono text-emerald-600 font-bold">WGS84 / EPSG:4326</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-stone-100 dark:border-stone-800">
@@ -156,25 +270,33 @@ export default function AdminPage() {
 
               <button
                 type="button"
+                disabled={isSyncing}
                 onClick={async () => {
+                  setIsSyncing(true);
                   toast.info("Connecting to GBIF Open Access Biodiversity API...");
                   try {
                     const res = await fetch("/api/sync/gbif", { method: "POST" });
                     const d = await res.json();
                     if (res.ok) {
                       toast.success(d.message || "Synced real open-source tree records!");
+                      loadUsers();
                     } else {
                       toast.error(d.error || "Sync failed");
                     }
                   } catch {
                     toast.error("Network error syncing open data");
+                  } finally {
+                    setIsSyncing(false);
                   }
                 }}
-                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all hover:bg-emerald-100"
+                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all hover:bg-emerald-100 disabled:opacity-60"
               >
-                <span>🌐 Ingest Real Open-Source Trees (GBIF API)</span>
+                <span className="flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>Ingest Real Open-Source Trees (GBIF API)</span>
+                </span>
                 <span className="font-mono text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded">
-                  Sync Live
+                  {isSyncing ? "Syncing..." : "Sync Live"}
                 </span>
               </button>
             </div>

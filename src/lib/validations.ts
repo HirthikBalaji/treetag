@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const treeSchema = z.object({
-  projectId: z.string().min(1, "Project is required"),
+  projectId: z.string().optional().default("default"),
   commonName: z.string().min(1, "Common name is required"),
   scientificName: z.string().min(1, "Scientific name is required"),
   family: z.string().optional().nullable(),

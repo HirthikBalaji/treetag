@@ -79,6 +79,20 @@ export default function FullscreenMapPage() {
           </button>
         </div>
 
+        {trees.length === 0 && !loading && (
+          <div className="absolute top-4 right-4 z-30 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-xl flex items-center gap-3 animate-in fade-in duration-200">
+            <span className="text-xs text-stone-600 dark:text-stone-300 font-medium">
+              No specimens in registry yet.
+            </span>
+            <Link
+              href="/trees/new"
+              className="px-3 py-1 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all"
+            >
+              + Add Tree
+            </Link>
+          </div>
+        )}
+
         {/* Filter Drawer */}
         {filterDrawerOpen && (
           <div className="absolute top-16 left-4 z-30 w-64 bg-white/95 dark:bg-stone-900/95 backdrop-blur-md p-4 rounded-2xl border border-stone-200 dark:border-stone-700 shadow-xl space-y-3 animate-in fade-in zoom-in-95 duration-150">

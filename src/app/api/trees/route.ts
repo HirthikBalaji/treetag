@@ -101,20 +101,12 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    let user = await getCurrentUser();
+    const user = await getCurrentUser();
     if (!user) {
-      // For immediate trial / guest demo, fallback to first surveyor user in DB
-      const fallbackUser = await prisma.user.findFirst({
-        where: { role: "SURVEYOR" },
-      });
-      if (fallbackUser) {
-        user = fallbackUser;
-      } else {
-        return NextResponse.json(
-          { error: "Authentication required to register trees" },
-          { status: 401 }
-        );
-      }
+      return NextResponse.json(
+        { error: "Authentication required to register trees" },
+        { status: 401 }
+      );
     }
 
     const body = await req.json();
@@ -128,6 +120,45 @@ export async function POST(req: Request) {
 
     const data = parsed.data;
 
+    // Resolve project ID safely
+    let resolvedProjectId = data.projectId;
+    if (!resolvedProjectId || resolvedProjectId === "default") {
+      let defaultProj = await prisma.project.findFirst();
+      if (!defaultProj) {
+        defaultProj = await prisma.project.create({
+          data: {
+            name: "Main Canopy Survey",
+            code: "CANOPY-01",
+            organization: user.organization || "MAHI Club",
+            description: "Primary municipal and campus biodiversity survey plot",
+            areaSqKm: 15.0,
+            centerLat: 13.0827,
+            centerLng: 80.2707,
+          },
+        });
+      }
+      resolvedProjectId = defaultProj.id;
+    } else {
+      const existing = await prisma.project.findUnique({ where: { id: resolvedProjectId } });
+      if (!existing) {
+        let defaultProj = await prisma.project.findFirst();
+        if (!defaultProj) {
+          defaultProj = await prisma.project.create({
+            data: {
+              name: "Main Canopy Survey",
+              code: "CANOPY-01",
+              organization: user.organization || "MAHI Club",
+              description: "Primary municipal and campus biodiversity survey plot",
+              areaSqKm: 15.0,
+              centerLat: 13.0827,
+              centerLng: 80.2707,
+            },
+          });
+        }
+        resolvedProjectId = defaultProj.id;
+      }
+    }
+
     // Calculate DBH if missing but circumference is present
     let calculatedDbh = data.dbh;
     if (!calculatedDbh && data.trunkCircumference) {
@@ -135,14 +166,22 @@ export async function POST(req: Request) {
     }
 
     // Generate unique sequential tree code
-    const count = await prisma.tree.count();
-    const treeCode = `TR-${String(count + 1).padStart(6, "0")}`;
+    const lastTree = await prisma.tree.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { treeCode: true },
+    });
+    let nextNum = 1;
+    if (lastTree?.treeCode?.startsWith("TR-")) {
+      const numPart = parseInt(lastTree.treeCode.replace("TR-", ""), 10);
+      if (!isNaN(numPart)) nextNum = numPart + 1;
+    }
+    const treeCode = `TR-${String(nextNum).padStart(6, "0")}`;
 
     // Create tree record
     const newTree = await prisma.tree.create({
       data: {
         treeCode,
-        projectId: data.projectId,
+        projectId: resolvedProjectId,
         createdById: user.id,
         updatedById: user.id,
         commonName: data.commonName,

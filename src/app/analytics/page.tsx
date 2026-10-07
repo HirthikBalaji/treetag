@@ -23,8 +23,6 @@ import {
   YAxis,
   Tooltip,
   Cell,
-  PieChart,
-  Pie,
   LineChart,
   Line,
   CartesianGrid,
@@ -51,14 +49,12 @@ export default function AnalyticsPage() {
   }, []);
 
   const summary = data?.summary || {
-    totalTrees: 56,
-    speciesCount: 15,
-    nativePercentage: 73,
-    needAttention: 8,
-    simpsonDiversityIndex: 0.88,
+    totalTrees: 0,
+    speciesCount: 0,
+    nativePercentage: 0,
+    needAttention: 0,
+    simpsonDiversityIndex: 0,
   };
-
-  const healthColors = ["#16a34a", "#22c55e", "#eab308", "#f97316", "#ef4444"];
 
   return (
     <AppLayout>
@@ -95,9 +91,9 @@ export default function AnalyticsPage() {
           <StatCard
             title="Simpson Diversity Index"
             value={summary.simpsonDiversityIndex}
-            subtitle="High canopy ecological resilience"
+            subtitle={summary.totalTrees > 1 ? "Canopy ecological resilience" : "Pending survey data"}
             icon={Sparkles}
-            badge="D = 0.88"
+            badge={summary.totalTrees > 1 ? `D = ${summary.simpsonDiversityIndex}` : "D = 0.00"}
             badgeColor="emerald"
           />
           <StatCard
@@ -141,9 +137,13 @@ export default function AnalyticsPage() {
               <span className="block text-emerald-300 text-[11px] font-semibold">
                 Dominant Ecological Specimen
               </span>
-              <p className="text-sm font-bold mt-1">Azadirachta indica (Neem)</p>
+              <p className="text-sm font-bold mt-1">
+                {data?.biodiversityInsights?.mostPrevalentSpecies || "None registered yet"}
+              </p>
               <p className="text-[11px] text-stone-300 mt-0.5">
-                Constitutes ~25% of total canopy volume. Key carbon sink and natural pest deterrent.
+                {summary.totalTrees > 0
+                  ? "Top cataloged species by total specimen density."
+                  : "Awaiting tree specimens in registry."}
               </p>
             </div>
 
@@ -151,9 +151,13 @@ export default function AnalyticsPage() {
               <span className="block text-amber-300 text-[11px] font-semibold">
                 Highest Vulnerability Specimen
               </span>
-              <p className="text-sm font-bold mt-1">Delonix regia (Gulmohar)</p>
+              <p className="text-sm font-bold mt-1">
+                {data?.biodiversityInsights?.highestRiskSpecies || "None"}
+              </p>
               <p className="text-[11px] text-stone-300 mt-0.5">
-                Brittle wood architecture prone to limb tearing during intense monsoon depressions.
+                {summary.totalTrees > 0
+                  ? "Identified based on arboricultural damage or structural decay."
+                  : "No risk alerts currently active."}
               </p>
             </div>
 
@@ -162,10 +166,12 @@ export default function AnalyticsPage() {
                 Estimated Canopy Shadow Area
               </span>
               <p className="text-sm font-bold mt-1">
-                {data?.biodiversityInsights?.canopyCoverSqMeters || 2350} m²
+                {data?.biodiversityInsights?.canopyCoverSqMeters || 0} m²
               </p>
               <p className="text-[11px] text-stone-300 mt-0.5">
-                Mitigates urban heat island effect by approx 2.4°C within immediate radius.
+                {summary.totalTrees > 0
+                  ? "Calculated shadow footprint mitigating urban heat island effect."
+                  : "Calculated dynamically from tree crown diameters."}
               </p>
             </div>
           </div>
@@ -182,33 +188,45 @@ export default function AnalyticsPage() {
               Number of surveyed specimens cataloged per species
             </p>
 
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={data?.topSpecies || []}
-                  layout="vertical"
-                  margin={{ top: 5, right: 20, left: 40, bottom: 5 }}
-                >
-                  <XAxis type="number" tick={{ fontSize: 11 }} />
-                  <YAxis
-                    type="category"
-                    dataKey="scientificName"
-                    tick={{ fontSize: 10, fontStyle: "italic" }}
-                    width={110}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      backgroundColor: "#18181b",
-                      border: "1px solid #27272a",
-                      color: "#ffffff",
-                      fontSize: "12px",
-                    }}
-                  />
-                  <Bar dataKey="count" fill="#166534" radius={[0, 6, 6, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {(data?.topSpecies || []).length === 0 ? (
+              <div className="h-64 flex flex-col items-center justify-center text-center p-6 bg-stone-50 dark:bg-stone-800/40 rounded-2xl border border-dashed border-stone-200 dark:border-stone-800 text-stone-400">
+                <Trees className="w-8 h-8 text-stone-300 dark:text-stone-600 mb-2" />
+                <p className="text-xs font-medium text-stone-600 dark:text-stone-300">
+                  No species distribution data yet
+                </p>
+                <p className="text-[11px] text-stone-400 mt-0.5">
+                  Register specimens to plot botanical taxonomic abundance.
+                </p>
+              </div>
+            ) : (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={data?.topSpecies || []}
+                    layout="vertical"
+                    margin={{ top: 5, right: 20, left: 40, bottom: 5 }}
+                  >
+                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                    <YAxis
+                      type="category"
+                      dataKey="scientificName"
+                      tick={{ fontSize: 10, fontStyle: "italic" }}
+                      width={110}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "12px",
+                        backgroundColor: "#18181b",
+                        border: "1px solid #27272a",
+                        color: "#ffffff",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Bar dataKey="count" fill="#166534" radius={[0, 6, 6, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
 
           {/* Chart 2: Monthly Tree Additions Trajectory */}
@@ -217,34 +235,46 @@ export default function AnalyticsPage() {
               Survey Registry Growth Trajectory
             </h3>
             <p className="text-xs text-stone-500 mb-4">
-              Cumulative trees tagged across historical field surveys
+              Cumulative trees tagged across field surveys
             </p>
 
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data?.monthlyTrends || []}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "12px",
-                      backgroundColor: "#18181b",
-                      border: "1px solid #27272a",
-                      color: "#ffffff",
-                      fontSize: "12px",
-                    }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="count"
-                    stroke="#22c55e"
-                    strokeWidth={3}
-                    dot={{ r: 4, fill: "#166534" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {summary.totalTrees === 0 ? (
+              <div className="h-64 flex flex-col items-center justify-center text-center p-6 bg-stone-50 dark:bg-stone-800/40 rounded-2xl border border-dashed border-stone-200 dark:border-stone-800 text-stone-400">
+                <TrendingUp className="w-8 h-8 text-stone-300 dark:text-stone-600 mb-2" />
+                <p className="text-xs font-medium text-stone-600 dark:text-stone-300">
+                  No survey additions to plot yet
+                </p>
+                <p className="text-[11px] text-stone-400 mt-0.5">
+                  Monthly tagging trajectory will visualize survey velocity here.
+                </p>
+              </div>
+            ) : (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data?.monthlyTrends || []}>
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "12px",
+                        backgroundColor: "#18181b",
+                        border: "1px solid #27272a",
+                        color: "#ffffff",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#22c55e"
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: "#166534" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         </div>
 
@@ -257,33 +287,39 @@ export default function AnalyticsPage() {
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {(data?.contributors || []).map((c: any, index: number) => (
-              <div
-                key={c.id}
-                className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-800 flex items-center gap-3.5"
-              >
-                <div className="relative">
-                  <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold text-sm">
-                    {c.name ? c.name.charAt(0) : "S"}
+          {(data?.contributors || []).length === 0 ? (
+            <div className="p-6 text-center bg-stone-50 dark:bg-stone-800/40 rounded-2xl border border-dashed border-stone-200 dark:border-stone-800 text-stone-400 text-xs">
+              No surveyor contributions recorded yet. Field registrations will rank top contributors.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {(data?.contributors || []).map((c: any, index: number) => (
+                <div
+                  key={c.id}
+                  className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-800/50 border border-stone-200 dark:border-stone-800 flex items-center gap-3.5"
+                >
+                  <div className="relative">
+                    <div className="w-11 h-11 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold text-sm">
+                      {c.name ? c.name.charAt(0) : "S"}
+                    </div>
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-700 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
+                      #{index + 1}
+                    </span>
                   </div>
-                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-emerald-700 text-white font-bold text-[10px] flex items-center justify-center shadow-xs">
-                    #{index + 1}
-                  </span>
-                </div>
 
-                <div className="min-w-0">
-                  <h4 className="font-bold text-xs text-stone-900 dark:text-white truncate">
-                    {c.name}
-                  </h4>
-                  <p className="text-[10px] text-stone-400 font-medium">{c.role}</p>
-                  <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1">
-                    {c.treesCreated} trees documented
-                  </p>
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-xs text-stone-900 dark:text-white truncate">
+                      {c.name}
+                    </h4>
+                    <p className="text-[10px] text-stone-400 font-medium">{c.role}</p>
+                    <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 mt-1">
+                      {c.treesCreated} trees documented
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
