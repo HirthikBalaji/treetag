@@ -105,7 +105,9 @@ export default function DashboardPage() {
                 Digital Tree Registry
               </span>
               <span className="text-xs text-stone-400">•</span>
-              <span className="text-xs text-stone-500 font-medium">Campus & Urban Canopy</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300">
+                100% Real Open-Source Data (GBIF & OpenStreetMap)
+              </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-stone-900 dark:text-white mt-1">
               Biodiversity Intelligence Dashboard

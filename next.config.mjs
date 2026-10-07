@@ -5,11 +5,15 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "images.unsplash.com",
+        hostname: "inaturalist-open-data.s3.amazonaws.com",
       },
       {
         protocol: "https",
-        hostname: "assets.tree-registry.org",
+        hostname: "static.inaturalist.org",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
       },
       {
         protocol: "https",

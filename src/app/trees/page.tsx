@@ -361,9 +361,16 @@ export default function TreesRegistryPage() {
                       {/* Tree info */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
-                          <span className="font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                            {t.treeCode}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                              {t.treeCode}
+                            </span>
+                            {t.openSourceId && (
+                              <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-semibold" title={t.sourceDataset}>
+                                {t.openSourceId}
+                              </span>
+                            )}
+                          </div>
                           <TreeHealthBadge status={t.healthStatus} size="sm" />
                         </div>
                         <h4 className="font-bold text-sm text-stone-900 dark:text-white truncate">
@@ -450,8 +457,15 @@ export default function TreesRegistryPage() {
                           )}
                         </button>
                       </td>
-                      <td className="py-3 px-4 font-mono font-bold text-emerald-800 dark:text-emerald-300">
-                        {t.treeCode}
+                      <td className="py-3 px-4 font-mono">
+                        <span className="font-bold text-emerald-800 dark:text-emerald-300 block">
+                          {t.treeCode}
+                        </span>
+                        {t.openSourceId && (
+                          <span className="text-[9px] text-blue-700 dark:text-blue-300 block" title={t.sourceDataset}>
+                            {t.openSourceId}
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">

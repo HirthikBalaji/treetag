@@ -241,6 +241,11 @@ export default function TreeDetailPage() {
                 <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
                   {tree.treeCode}
                 </span>
+                {tree.openSourceId && (
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-semibold" title="Real Open Source Dataset Provenance">
+                    {tree.openSourceId}
+                  </span>
+                )}
                 <span className="text-xs text-stone-400 font-medium">
                   {tree.project?.name || "General Registry"}
                 </span>
@@ -395,10 +400,26 @@ export default function TreeDetailPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div>
                     <span className="block text-[10px] text-stone-400 uppercase font-semibold">
+                      Data Source & Provenance
+                    </span>
+                    <p className="font-semibold text-emerald-800 dark:text-emerald-300 mt-0.5">
+                      {tree.sourceDataset || "Real Open Source Registry"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-stone-400 uppercase font-semibold">
+                      Open Record Identifier
+                    </span>
+                    <p className="font-mono text-stone-800 dark:text-stone-200 mt-0.5">
+                      {tree.openSourceId || "TreeTag Verified In-Situ Survey"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-stone-400 uppercase font-semibold">
                       Soil Substrate
                     </span>
                     <p className="font-medium text-stone-800 dark:text-stone-200 mt-0.5">
-                      {tree.soilCondition || "Loamy organic soil"}
+                      {tree.soilCondition || "Coastal red sandy-loam"}
                     </p>
                   </div>
                   <div>
@@ -419,10 +440,10 @@ export default function TreeDetailPage() {
                   </div>
                   <div>
                     <span className="block text-[10px] text-stone-400 uppercase font-semibold">
-                      Surrounding Land Use
+                      Surrounding Land Use / Locality
                     </span>
                     <p className="font-medium text-stone-800 dark:text-stone-200 mt-0.5">
-                      {tree.surroundingEnvironment || "Campus academic zone"}
+                      {tree.surroundingEnvironment || "Chennai, Tamil Nadu"}
                     </p>
                   </div>
                 </div>

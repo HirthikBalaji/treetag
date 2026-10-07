@@ -153,6 +153,30 @@ export default function AdminPage() {
                   .csv
                 </span>
               </a>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  toast.info("Connecting to GBIF Open Access Biodiversity API...");
+                  try {
+                    const res = await fetch("/api/sync/gbif", { method: "POST" });
+                    const d = await res.json();
+                    if (res.ok) {
+                      toast.success(d.message || "Synced real open-source tree records!");
+                    } else {
+                      toast.error(d.error || "Sync failed");
+                    }
+                  } catch {
+                    toast.error("Network error syncing open data");
+                  }
+                }}
+                className="w-full flex items-center justify-between p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold transition-all hover:bg-emerald-100"
+              >
+                <span>🌐 Ingest Real Open-Source Trees (GBIF API)</span>
+                <span className="font-mono text-[10px] bg-emerald-700 text-white px-2 py-0.5 rounded">
+                  Sync Live
+                </span>
+              </button>
             </div>
           </div>
         </div>
