@@ -19,38 +19,48 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid coordinate values" }, { status: 400 });
     }
 
-    // Query OpenStreetMap Nominatim reverse geocoder
+    // Query OpenStreetMap Nominatim reverse geocoder with a 3.5s timeout
     const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
     
-    const res = await fetch(nominatimUrl, {
-      headers: {
-        "User-Agent": "TreeTag-GIS/1.0 (https://treetag.org; contact@treetag.org)",
-        "Accept-Language": "en",
-      },
-      next: { revalidate: 3600 },
-    });
+    let displayName = `${latitude.toFixed(6)}°, ${longitude.toFixed(6)}°`;
+    let address = {};
+    let osmId = null;
+    let osmType = null;
 
-    if (!res.ok) {
-      return NextResponse.json({
-        displayName: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-        address: {},
-        source: "OpenStreetMap",
+    try {
+      const res = await fetch(nominatimUrl, {
+        headers: {
+          "User-Agent": "TreeTag-GIS/1.0 (https://treetag.org; contact@treetag.org)",
+          "Accept-Language": "en",
+        },
+        signal: AbortSignal.timeout(3500),
       });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.display_name) {
+          displayName = data.display_name;
+        }
+        if (data.address) {
+          address = data.address;
+        }
+        osmId = data.osm_id;
+        osmType = data.osm_type;
+      }
+    } catch {
+      // Graceful fallback when Nominatim is rate-limited or offline
     }
 
-    const data = await res.json();
-
     return NextResponse.json({
-      displayName: data.display_name || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-      address: data.address || {},
-      osmId: data.osm_id,
-      osmType: data.osm_type,
+      displayName,
+      address,
+      osmId,
+      osmType,
       source: "OpenStreetMap Nominatim (ODbL)",
     });
-  } catch (error) {
-    console.error("OSM Reverse Geocode error:", error);
+  } catch {
     return NextResponse.json({
-      displayName: "Location Coordinates",
+      displayName: "Geographic Location",
       address: {},
       source: "OpenStreetMap",
     });
