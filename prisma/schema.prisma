@@ -1,0 +1,294 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  PROJECT_MANAGER
+  SURVEYOR
+  VIEWER
+}
+
+enum HealthStatus {
+  HEALTHY
+  GOOD
+  MODERATE
+  POOR
+  CRITICAL
+}
+
+enum RiskLevel {
+  LOW
+  MODERATE
+  HIGH
+  EXTREME
+}
+
+enum LocationSource {
+  DEVICE_GPS
+  MANUAL_PIN
+  MAP_ADJUSTED
+  GEOCODER
+}
+
+enum PhotoType {
+  FULL_TREE
+  TRUNK
+  LEAVES
+  BARK
+  FLOWERS
+  FRUIT
+  DAMAGE
+  DISEASE
+  ENVIRONMENT
+}
+
+enum MaintenanceType {
+  WATERING
+  PRUNING
+  FERTILIZATION
+  PEST_CONTROL
+  DISEASE_TREATMENT
+  STRUCTURAL_SUPPORT
+  CLEANING
+  SOIL_TREATMENT
+  TRANSPLANTATION
+  OTHER
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  name           String
+  passwordHash   String
+  role           Role            @default(SURVEYOR)
+  avatar         String?
+  organization   String?         @default("MAHI Club")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  createdTrees   Tree[]          @relation("CreatedBy")
+  updatedTrees   Tree[]          @relation("UpdatedBy")
+  photos         Photo[]
+  inspections    Inspection[]
+  maintenances   Maintenance[]
+  auditLogs      AuditLog[]
+  projectMembers ProjectMember[]
+}
+
+model Project {
+  id              String          @id @default(cuid())
+  code            String          @unique
+  name            String
+  description     String?
+  centerLat       Float           @default(13.0827)
+  centerLng       Float           @default(80.2707)
+  zoom            Int             @default(14)
+  areaSqKm        Float           @default(12.5)
+  boundaryGeoJson String?
+  organization    String          @default("MAHI Club")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  trees           Tree[]
+  members         ProjectMember[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      Role     @default(SURVEYOR)
+  joinedAt  DateTime @default(now())
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Species {
+  id                 String   @id @default(cuid())
+  commonName         String
+  scientificName     String   @unique
+  family             String
+  genus              String
+  species            String
+  nativeStatus       Boolean  @default(true)
+  description        String?
+  growthRate         String?
+  typicalHeight      Float?
+  lifespan           Int?
+  conservationStatus String?  @default("Least Concern")
+  imageUrl           String?
+  createdAt          DateTime @default(now())
+
+  @@index([commonName])
+  @@index([scientificName])
+  @@index([family])
+}
+
+model Tree {
+  id                       String         @id @default(cuid())
+  treeCode                 String         @unique
+  projectId                String
+  createdById              String
+  updatedById              String?
+
+  // Botanical
+  commonName               String
+  scientificName           String
+  family                   String?
+  genus                    String?
+  species                  String?
+  variety                  String?
+  nativeStatus             Boolean        @default(true)
+  identificationConfidence Int?           @default(100)
+
+  // Geospatial
+  latitude                 Float
+  longitude                Float
+  gpsAccuracy              Float?
+  altitude                 Float?
+  locationSource           LocationSource @default(DEVICE_GPS)
+
+  // Dimensions
+  height                   Float?
+  trunkCircumference       Float?
+  dbh                      Float?
+  canopyWidth              Float?
+  estimatedAge             Int?
+
+  // Health & Risk
+  healthStatus             HealthStatus   @default(HEALTHY)
+  riskLevel                RiskLevel      @default(LOW)
+
+  trunkCondition           String?
+  leafCondition            String?
+  structuralCondition      String?
+  pestStatus               String?
+  diseaseStatus            String?
+  damageStatus             String?
+
+  // Environmental context
+  soilCondition            String?
+  sunlight                 String?
+  waterAvailability        String?
+  surroundingEnvironment   String?
+  competition              String?
+
+  // Care requirements
+  irrigationRequired       Boolean        @default(false)
+  pruningRequired          Boolean        @default(false)
+  fertilizationRequired    Boolean        @default(false)
+  pestControlRequired      Boolean        @default(false)
+  supportRequired          Boolean        @default(false)
+
+  lastInspectedAt          DateTime?
+  nextInspectionAt         DateTime?
+
+  notes                    String?
+  visibility               String         @default("PUBLIC")
+
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  project                  Project        @relation(fields: [projectId], references: [id])
+  createdBy                User           @relation("CreatedBy", fields: [createdById], references: [id])
+  updatedBy                User?          @relation("UpdatedBy", fields: [updatedById], references: [id])
+
+  photos                   Photo[]
+  inspections              Inspection[]
+  maintenances             Maintenance[]
+
+  @@index([latitude, longitude])
+  @@index([healthStatus])
+  @@index([scientificName])
+  @@index([commonName])
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+model Photo {
+  id           String    @id @default(cuid())
+  treeId       String
+  uploadedById String
+  fileUrl      String
+  thumbnailUrl String?
+  photoType    PhotoType @default(FULL_TREE)
+  caption      String?
+  latitude     Float?
+  longitude    Float?
+  capturedAt   DateTime?
+  isPrimary    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  tree         Tree      @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
+
+  @@index([treeId])
+  @@index([isPrimary])
+}
+
+model Inspection {
+  id                 String       @id @default(cuid())
+  treeId             String
+  inspectorId        String
+  inspectionDate     DateTime     @default(now())
+  healthStatus       HealthStatus
+  riskLevel          RiskLevel    @default(LOW)
+  observations       String?
+  recommendations    String?
+  photos             String?      // JSON array of photo URLs
+  nextInspectionDate DateTime?
+  createdAt          DateTime     @default(now())
+
+  tree               Tree         @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  inspector          User         @relation(fields: [inspectorId], references: [id])
+
+  @@index([treeId])
+  @@index([inspectionDate])
+}
+
+model Maintenance {
+  id              String          @id @default(cuid())
+  treeId          String
+  performedById   String
+  maintenanceType MaintenanceType
+  performedAt     DateTime        @default(now())
+  description     String?
+  notes           String?
+  cost            Float?
+  createdAt       DateTime        @default(now())
+
+  tree            Tree            @relation(fields: [treeId], references: [id], onDelete: Cascade)
+  performedBy     User            @relation(fields: [performedById], references: [id])
+
+  @@index([treeId])
+  @@index([maintenanceType])
+  @@index([performedAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String   // "CREATE", "UPDATE", "DELETE", "PHOTO_UPLOAD", "INSPECTION", "MAINTENANCE"
+  entityType String   // "TREE", "PHOTO", "INSPECTION", "MAINTENANCE", "PROJECT", "USER"
+  entityId   String
+  oldValue   String?  // JSON formatted old state
+  newValue   String?  // JSON formatted new state
+  metadata   String?  // JSON additional context (e.g. treeCode, diff fields, user agent)
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
