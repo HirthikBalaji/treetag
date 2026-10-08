@@ -44,25 +44,16 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!token) return null;
 
   const payload = verifyToken(token);
-  if (!payload) return null;
+  if (!payload || !payload.id) return null;
 
-  // Confirm user exists and get fresh details
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: payload.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        organization: true,
-        avatar: true,
-      },
-    });
-    return user;
-  } catch {
-    return null;
-  }
+  return {
+    id: payload.id,
+    email: payload.email,
+    name: payload.name,
+    role: payload.role,
+    organization: payload.organization,
+    avatar: payload.avatar,
+  };
 }
 
 export function requireRole(userRole: Role, allowedRoles: Role[]): boolean {

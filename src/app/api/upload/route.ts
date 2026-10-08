@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
+import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+
+const uploadsDir = path.join(process.cwd(), "public", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 export async function POST(req: Request) {
   try {
@@ -12,11 +18,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "No image payload provided" }, { status: 400 });
       }
 
-      // If it's a data URL, we can write it to /public/uploads
+      // If it's a data URL, write asynchronously to /public/uploads
       if (image.startsWith("data:image/")) {
         const matches = image.match(/^data:image\/([A-Za-z-+]+);base64,(.+)$/);
         if (!matches || matches.length !== 3) {
-          // If valid URL already, just return it
           return NextResponse.json({ url: image });
         }
 
@@ -24,14 +29,9 @@ export async function POST(req: Request) {
         const base64Data = matches[2];
         const buffer = Buffer.from(base64Data, "base64");
 
-        const uploadsDir = path.join(process.cwd(), "public", "uploads");
-        if (!fs.existsSync(uploadsDir)) {
-          fs.mkdirSync(uploadsDir, { recursive: true });
-        }
-
-        const fileName = `tree-${Date.now()}-${Math.random().toString(36).substr(2, 6)}.${ext}`;
+        const fileName = `tree-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
         const filePath = path.join(uploadsDir, fileName);
-        fs.writeFileSync(filePath, buffer);
+        await writeFile(filePath, buffer);
 
         return NextResponse.json({ url: `/uploads/${fileName}` }, { status: 201 });
       }
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ url: image });
     }
 
-    // Handle multipart form data
+    // Handle multipart form data asynchronously
     const formData = await req.formData();
     const file = formData.get("file") as File;
     if (!file) {
@@ -49,15 +49,10 @@ export async function POST(req: Request) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadsDir = path.join(process.cwd(), "public", "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
     const ext = file.name.split(".").pop() || "jpg";
-    const fileName = `tree-${Date.now()}-${Math.random().toString(36).substr(2, 6)}.${ext}`;
+    const fileName = `tree-${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${ext}`;
     const filePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(filePath, buffer);
+    await writeFile(filePath, buffer);
 
     return NextResponse.json({ url: `/uploads/${fileName}` }, { status: 201 });
   } catch (error) {

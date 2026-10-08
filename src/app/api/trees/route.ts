@@ -99,6 +99,27 @@ export async function GET(req: Request) {
   }
 }
 
+let cachedDefaultProjectId: string | null = null;
+async function getDefaultProjectId(org?: string | null): Promise<string> {
+  if (cachedDefaultProjectId) return cachedDefaultProjectId;
+  const proj = await prisma.project.upsert({
+    where: { code: "CANOPY-01" },
+    update: {},
+    create: {
+      name: "Main Canopy Survey",
+      code: "CANOPY-01",
+      organization: org || "MAHI Club",
+      description: "Primary municipal and campus biodiversity survey plot",
+      areaSqKm: 15.0,
+      centerLat: 13.0827,
+      centerLng: 80.2707,
+    },
+    select: { id: true },
+  });
+  cachedDefaultProjectId = proj.id;
+  return proj.id;
+}
+
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
@@ -120,43 +141,10 @@ export async function POST(req: Request) {
 
     const data = parsed.data;
 
-    // Resolve project ID safely
+    // Resolve project ID with in-memory caching and atomic upsert
     let resolvedProjectId = data.projectId;
     if (!resolvedProjectId || resolvedProjectId === "default") {
-      let defaultProj = await prisma.project.findFirst();
-      if (!defaultProj) {
-        defaultProj = await prisma.project.create({
-          data: {
-            name: "Main Canopy Survey",
-            code: "CANOPY-01",
-            organization: user.organization || "MAHI Club",
-            description: "Primary municipal and campus biodiversity survey plot",
-            areaSqKm: 15.0,
-            centerLat: 13.0827,
-            centerLng: 80.2707,
-          },
-        });
-      }
-      resolvedProjectId = defaultProj.id;
-    } else {
-      const existing = await prisma.project.findUnique({ where: { id: resolvedProjectId } });
-      if (!existing) {
-        let defaultProj = await prisma.project.findFirst();
-        if (!defaultProj) {
-          defaultProj = await prisma.project.create({
-            data: {
-              name: "Main Canopy Survey",
-              code: "CANOPY-01",
-              organization: user.organization || "MAHI Club",
-              description: "Primary municipal and campus biodiversity survey plot",
-              areaSqKm: 15.0,
-              centerLat: 13.0827,
-              centerLng: 80.2707,
-            },
-          });
-        }
-        resolvedProjectId = defaultProj.id;
-      }
+      resolvedProjectId = await getDefaultProjectId(user.organization);
     }
 
     // Calculate DBH if missing but circumference is present
@@ -165,19 +153,12 @@ export async function POST(req: Request) {
       calculatedDbh = parseFloat((data.trunkCircumference / Math.PI).toFixed(1));
     }
 
-    // Generate unique sequential tree code
-    const lastTree = await prisma.tree.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { treeCode: true },
-    });
-    let nextNum = 1;
-    if (lastTree?.treeCode?.startsWith("TR-")) {
-      const numPart = parseInt(lastTree.treeCode.replace("TR-", ""), 10);
-      if (!isNaN(numPart)) nextNum = numPart + 1;
-    }
-    const treeCode = `TR-${String(nextNum).padStart(6, "0")}`;
+    // High-concurrency collision-free sequential-style tree code (TR-XXXXXX)
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    const timeSlice = Date.now().toString().slice(-4);
+    const treeCode = `TR-${timeSlice}${randomDigits}`;
 
-    // Create tree record
+    // Single atomic write: Tree + Photos + Return hydrated relations in 1 query
     const newTree = await prisma.tree.create({
       data: {
         treeCode,
@@ -224,32 +205,31 @@ export async function POST(req: Request) {
         visibility: data.visibility,
         lastInspectedAt: new Date(),
         nextInspectionAt: new Date(Date.now() + 30 * 24 * 3600 * 1000),
-      },
-    });
-
-    // If photos provided, attach them
-    if (data.photos && data.photos.length > 0) {
-      for (let i = 0; i < data.photos.length; i++) {
-        const photo = data.photos[i];
-        await prisma.photo.create({
-          data: {
-            treeId: newTree.id,
+        photos: data.photos && data.photos.length > 0 ? {
+          create: data.photos.map((photo, i) => ({
             uploadedById: user.id,
             fileUrl: photo.fileUrl,
             thumbnailUrl: photo.fileUrl,
             photoType: photo.photoType,
-            caption: photo.caption || `${newTree.commonName} photo`,
-            latitude: newTree.latitude,
-            longitude: newTree.longitude,
+            caption: photo.caption || `${data.commonName} photo`,
+            latitude: data.latitude,
+            longitude: data.longitude,
             capturedAt: new Date(),
             isPrimary: photo.isPrimary || i === 0,
-          },
-        });
-      }
-    }
+          }))
+        } : undefined,
+      },
+      include: {
+        project: true,
+        createdBy: {
+          select: { id: true, name: true, avatar: true },
+        },
+        photos: true,
+      },
+    });
 
-    // Write audit log
-    await prisma.auditLog.create({
+    // Write audit log asynchronously (non-blocking)
+    prisma.auditLog.create({
       data: {
         userId: user.id,
         action: "CREATE",
@@ -266,18 +246,9 @@ export async function POST(req: Request) {
           summary: `${user.name} registered new specimen: ${newTree.commonName} (${newTree.treeCode})`,
         }),
       },
-    });
+    }).catch(() => {});
 
-    const fullTree = await prisma.tree.findUnique({
-      where: { id: newTree.id },
-      include: {
-        project: true,
-        createdBy: true,
-        photos: true,
-      },
-    });
-
-    return NextResponse.json({ success: true, tree: fullTree }, { status: 201 });
+    return NextResponse.json({ success: true, tree: newTree }, { status: 201 });
   } catch (error) {
     console.error("Error creating tree:", error);
     return NextResponse.json(

@@ -5,34 +5,51 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const totalTrees = await prisma.tree.count();
-
-    // Trees added this month
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
-    const treesThisMonth = await prisma.tree.count({
-      where: { createdAt: { gte: startOfMonth } },
-    });
 
-    // Species count
-    const distinctSpecies = await prisma.tree.groupBy({
-      by: ["scientificName"],
-      _count: { _all: true },
-    });
+    const [
+      totalTrees,
+      treesThisMonth,
+      distinctSpecies,
+      nativeTreesCount,
+      healthGroups,
+      riskGroups,
+      maintenanceNeededCount,
+      inspectionsDue,
+      distinctContributors,
+    ] = await Promise.all([
+      prisma.tree.count(),
+      prisma.tree.count({ where: { createdAt: { gte: startOfMonth } } }),
+      prisma.tree.groupBy({ by: ["scientificName"], _count: { _all: true } }),
+      prisma.tree.count({ where: { nativeStatus: true } }),
+      prisma.tree.groupBy({ by: ["healthStatus"], _count: { _all: true } }),
+      prisma.tree.groupBy({ by: ["riskLevel"], _count: { _all: true } }),
+      prisma.tree.count({
+        where: {
+          OR: [
+            { irrigationRequired: true },
+            { pruningRequired: true },
+            { fertilizationRequired: true },
+            { pestControlRequired: true },
+            { supportRequired: true },
+          ],
+        },
+      }),
+      prisma.tree.count({
+        where: {
+          OR: [
+            { nextInspectionAt: { lte: new Date() } },
+            { lastInspectedAt: null },
+          ],
+        },
+      }),
+      prisma.tree.groupBy({ by: ["createdById"], _count: { _all: true } }),
+    ]);
+
     const speciesCount = distinctSpecies.length;
-
-    // Native species
-    const nativeTreesCount = await prisma.tree.count({
-      where: { nativeStatus: true },
-    });
     const nativePercentage = totalTrees > 0 ? Math.round((nativeTreesCount / totalTrees) * 100) : 0;
-
-    // Health breakdown
-    const healthGroups = await prisma.tree.groupBy({
-      by: ["healthStatus"],
-      _count: { _all: true },
-    });
 
     const healthMap: Record<string, number> = {
       HEALTHY: 0,
@@ -45,11 +62,6 @@ export async function GET() {
       healthMap[g.healthStatus] = g._count._all;
     });
 
-    // Risk breakdown
-    const riskGroups = await prisma.tree.groupBy({
-      by: ["riskLevel"],
-      _count: { _all: true },
-    });
     const riskMap: Record<string, number> = {
       LOW: 0,
       MODERATE: 0,
@@ -60,38 +72,12 @@ export async function GET() {
       riskMap[g.riskLevel] = g._count._all;
     });
 
-    // Needing attention & critical
     const criticalTrees = healthMap.CRITICAL || 0;
     const needAttention =
       (healthMap.POOR || 0) +
       (healthMap.CRITICAL || 0) +
-      (await prisma.tree.count({
-        where: {
-          OR: [
-            { irrigationRequired: true },
-            { pruningRequired: true },
-            { fertilizationRequired: true },
-            { pestControlRequired: true },
-            { supportRequired: true },
-          ],
-        },
-      }));
+      maintenanceNeededCount;
 
-    // Inspections due
-    const inspectionsDue = await prisma.tree.count({
-      where: {
-        OR: [
-          { nextInspectionAt: { lte: new Date() } },
-          { lastInspectedAt: null },
-        ],
-      },
-    });
-
-    // Active contributors
-    const distinctContributors = await prisma.tree.groupBy({
-      by: ["createdById"],
-      _count: { _all: true },
-    });
     const activeContributors = distinctContributors.length;
 
     // Top species
