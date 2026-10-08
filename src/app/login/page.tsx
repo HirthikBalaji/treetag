@@ -56,7 +56,11 @@ export default function LoginPage() {
 
     if (res.success) {
       toast.success("Welcome back to TreeTag!");
-      router.push("/dashboard");
+      if (res.user?.role === "SURVEYOR") {
+        router.push("/trees/new");
+      } else {
+        router.push("/dashboard");
+      }
     } else {
       setErrorMsg(res.error || "Invalid email or password");
     }

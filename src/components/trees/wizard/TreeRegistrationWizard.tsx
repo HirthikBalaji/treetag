@@ -22,12 +22,15 @@ import {
   ShieldAlert,
   Loader2,
   X,
+  LogOut,
+  PlusCircle,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { MapLibreMap } from "@/components/maps/MapLibreMap";
 import { TreeHealthBadge } from "@/components/ui/TreeHealthBadge";
 import { formatCoordinates } from "@/lib/geo";
 import { useToast } from "@/components/providers/ToastProvider";
+import { useAuth } from "@/components/providers/AuthProvider";
 import { savePendingTree } from "@/lib/offline-sync";
 import { predictSpeciesFromPhoto, AISpeciesMatch } from "@/lib/ai-assistant";
 
@@ -50,9 +53,16 @@ interface ProjectOption {
 export function TreeRegistrationWizard() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, logout } = useAuth();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [submittedTree, setSubmittedTree] = useState<{
+    code: string;
+    id: string;
+    commonName: string;
+    scientificName: string;
+  } | null>(null);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [speciesList, setSpeciesList] = useState<SpeciesOption[]>([]);
 
@@ -267,6 +277,57 @@ export function TreeRegistrationWizard() {
     setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
+  // Reset and prepare for next tree (field survey flow)
+  const handleRegisterNextTree = () => {
+    setFormData({
+      projectId: projects[0]?.id || "",
+      photos: [],
+      latitude: 13.0827,
+      longitude: 80.2707,
+      gpsAccuracy: null,
+      altitude: null,
+      locationSource: "DEVICE_GPS",
+      commonName: "Neem",
+      scientificName: "Azadirachta indica",
+      family: "Meliaceae",
+      genus: "Azadirachta",
+      species: "indica",
+      variety: "",
+      nativeStatus: true,
+      identificationConfidence: 95,
+      height: 12.5,
+      trunkCircumference: 85,
+      dbh: 27.1,
+      canopyWidth: 8.0,
+      estimatedAge: 25,
+      healthStatus: "HEALTHY",
+      riskLevel: "LOW",
+      trunkCondition: "Sound and intact bark with good callusing",
+      leafCondition: "Full vigorous dark green foliage",
+      structuralCondition: "Well-balanced crown structure",
+      pestStatus: "None detected",
+      diseaseStatus: "Healthy vascular tissues",
+      damageStatus: "No mechanical damage",
+      soilCondition: "Loamy fertile soil with organic layer",
+      sunlight: "Full Sunlight",
+      waterAvailability: "Natural rainfall + surface moisture",
+      surroundingEnvironment: "Campus park arboretum lawn",
+      competition: "Good lateral spacing",
+      irrigationRequired: false,
+      pruningRequired: false,
+      fertilizationRequired: false,
+      pestControlRequired: false,
+      supportRequired: false,
+      nextInspectionDays: 90,
+      notes: "",
+    });
+    setAiSuggestions([]);
+    setResolvedAddress(null);
+    setSubmittedTree(null);
+    setCurrentStep(1);
+    captureDeviceLocation();
+  };
+
   // Submission
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -292,18 +353,46 @@ export function TreeRegistrationWizard() {
           colors: ["#16a34a", "#22c55e", "#84cc16"],
         });
         toast.success(`Tree ${data.tree?.treeCode || "record"} successfully registered!`);
-        router.push(`/trees/${data.tree?.id || ""}`);
+
+        if (user?.role === "SURVEYOR") {
+          setSubmittedTree({
+            code: data.tree?.treeCode || "REGISTERED",
+            id: data.tree?.id || "",
+            commonName: formData.commonName,
+            scientificName: formData.scientificName,
+          });
+        } else {
+          router.push(`/trees/${data.tree?.id || ""}`);
+        }
       } else {
         // If offline or network error, save to offline sync queue
         savePendingTree(payload);
         toast.info("Network unavailable. Saved tree to offline queue for later sync!");
-        router.push("/field");
+        if (user?.role === "SURVEYOR") {
+          setSubmittedTree({
+            code: "PENDING-OFFLINE",
+            id: "",
+            commonName: formData.commonName,
+            scientificName: formData.scientificName,
+          });
+        } else {
+          router.push("/field");
+        }
       }
     } catch (err) {
       // Offline fallback
       savePendingTree(payload);
       toast.info("Offline: Specimen stored locally in field survey queue.");
-      router.push("/field");
+      if (user?.role === "SURVEYOR") {
+        setSubmittedTree({
+          code: "PENDING-OFFLINE",
+          id: "",
+          commonName: formData.commonName,
+          scientificName: formData.scientificName,
+        });
+      } else {
+        router.push("/field");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -318,6 +407,53 @@ export function TreeRegistrationWizard() {
     { num: 6, title: "Maintenance", icon: Wrench },
     { num: 7, title: "Review", icon: CheckCircle2 },
   ];
+
+  if (submittedTree) {
+    return (
+      <div className="max-w-2xl mx-auto py-8 px-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className="bg-white dark:bg-stone-900 rounded-3xl border border-stone-200 dark:border-stone-800 p-8 text-center space-y-6 shadow-xl shadow-stone-900/5">
+          <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto shadow-md">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Field Registration Completed
+            </span>
+            <h2 className="text-2xl font-extrabold text-stone-900 dark:text-white">
+              Tree Successfully Registered!
+            </h2>
+            <div className="inline-block px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 font-mono font-bold text-sm text-emerald-700 dark:text-emerald-300">
+              {submittedTree.code}
+            </div>
+            <p className="text-sm text-stone-700 dark:text-stone-300 pt-1 font-medium">
+              {submittedTree.commonName} (<em>{submittedTree.scientificName}</em>)
+            </p>
+            <p className="text-xs text-stone-400 font-mono">
+              Coordinates: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+            </p>
+          </div>
+
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button
+              onClick={handleRegisterNextTree}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-900/15 transition-all hover:scale-102"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Register Next Tree (Step 1)</span>
+            </button>
+            <button
+              onClick={() => logout()}
+              className="w-full sm:w-auto px-6 py-3.5 rounded-xl border border-stone-200 dark:border-stone-800 hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

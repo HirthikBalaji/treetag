@@ -15,7 +15,7 @@ export interface UserSession {
 interface AuthContextType {
   user: UserSession | null;
   loading: boolean;
-  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string; user?: UserSession }>;
   logout: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await res.json();
       if (res.ok) {
         setUser(data.user);
-        return { success: true };
+        return { success: true, user: data.user };
       }
       return { success: false, error: data.error || "Login failed" };
     } catch {
