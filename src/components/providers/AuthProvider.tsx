@@ -10,6 +10,7 @@ export interface UserSession {
   role: "ADMIN" | "PROJECT_MANAGER" | "SURVEYOR" | "VIEWER";
   organization?: string | null;
   avatar?: string | null;
+  treeCount?: number;
 }
 
 interface AuthContextType {

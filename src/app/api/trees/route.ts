@@ -43,6 +43,9 @@ export async function GET(req: Request) {
     if (nativeStatus === "true") where.nativeStatus = true;
     if (nativeStatus === "false") where.nativeStatus = false;
 
+    const createdById = searchParams.get("createdById");
+    if (createdById) where.createdById = createdById;
+
     if (inspectionDue) {
       where.OR = [
         { nextInspectionAt: { lte: new Date() } },

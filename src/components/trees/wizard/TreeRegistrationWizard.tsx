@@ -50,7 +50,7 @@ interface ProjectOption {
 export function TreeRegistrationWizard() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshSession } = useAuth();
 
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -310,6 +310,9 @@ export function TreeRegistrationWizard() {
           colors: ["#16a34a", "#22c55e", "#84cc16"],
         });
         toast.success(`Tree ${data.tree?.treeCode || "record"} successfully registered!`);
+        if (refreshSession) {
+          refreshSession();
+        }
 
         if (user?.role === "SURVEYOR") {
           setSubmittedTree({
@@ -387,6 +390,19 @@ export function TreeRegistrationWizard() {
             <p className="text-xs text-stone-400 font-mono">
               Coordinates: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
             </p>
+
+            {typeof user?.treeCount === "number" && (
+              <div className="pt-2">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-bold text-xs shadow-2xs">
+                  <Trees className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <span>Recorded by you:</span>
+                  <span className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">
+                    {user.treeCount}
+                  </span>
+                  <span>{user.treeCount === 1 ? "tree" : "trees"} in total</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -423,20 +439,34 @@ export function TreeRegistrationWizard() {
           </h1>
         </div>
 
-        {/* Project Selector */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-stone-500 font-medium">Project:</span>
-          <select
-            value={formData.projectId}
-            onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-            className="text-xs px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 font-medium text-stone-800 dark:text-stone-200 outline-none"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} ({p.code})
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* Surveyor personal record count badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs font-bold shadow-2xs">
+            <Trees className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="text-stone-500 dark:text-stone-400 font-normal">Recorded by you:</span>
+            <span className="font-extrabold text-emerald-700 dark:text-emerald-300 text-sm">
+              {user?.treeCount ?? 0}
+            </span>
+            <span className="font-normal text-stone-500 dark:text-stone-400">
+              {(user?.treeCount ?? 0) === 1 ? "tree" : "trees"}
+            </span>
+          </div>
+
+          {/* Project Selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-stone-500 font-medium">Project:</span>
+            <select
+              value={formData.projectId}
+              onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+              className="text-xs px-3 py-1.5 rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 font-medium text-stone-800 dark:text-stone-200 outline-none"
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.code})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 

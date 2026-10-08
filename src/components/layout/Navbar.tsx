@@ -79,6 +79,20 @@ export function Navbar() {
 
         {/* Action controls */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Surveyor Tree Count Badge */}
+          {isSurveyor && (
+            <div
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-bold shadow-2xs"
+              title="Trees recorded by you"
+            >
+              <Trees className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>{user?.treeCount ?? 0}</span>
+              <span className="font-medium text-stone-500 dark:text-stone-400 hidden sm:inline">
+                {(user?.treeCount ?? 0) === 1 ? "Tree Recorded" : "Trees Recorded"}
+              </span>
+            </div>
+          )}
+
           {/* Controls hidden for surveyor */}
           {!isSurveyor && (
             <>
@@ -156,6 +170,11 @@ export function Navbar() {
                     <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-semibold uppercase">
                       {user?.role || "SURVEYOR"}
                     </span>
+                    {typeof user?.treeCount === "number" && (
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 font-bold">
+                        {user.treeCount} {user.treeCount === 1 ? "tree" : "trees"}
+                      </span>
+                    )}
                     {user?.organization && (
                       <span className="text-[10px] text-stone-400 truncate">
                         {user.organization}

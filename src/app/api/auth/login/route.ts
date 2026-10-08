@@ -44,6 +44,10 @@ export async function POST(req: Request) {
       avatar: user.avatar,
     });
 
+    const treeCount = await prisma.tree.count({
+      where: { createdById: user.id },
+    });
+
     const response = NextResponse.json({
       success: true,
       user: {
@@ -53,6 +57,7 @@ export async function POST(req: Request) {
         role: user.role,
         organization: user.organization,
         avatar: user.avatar,
+        treeCount,
       },
     });
 
