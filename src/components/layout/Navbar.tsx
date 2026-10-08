@@ -48,7 +48,7 @@ export function Navbar() {
               </div>
               <p className="hidden sm:block text-[11px] text-stone-500 dark:text-stone-400 font-medium -mt-0.5">
                 {isSurveyor
-                  ? "7-Step Tree Registration Terminal"
+                  ? "Tree Registration Terminal"
                   : "Digital Tree Registry & Biodiversity Platform"}
               </p>
             </div>

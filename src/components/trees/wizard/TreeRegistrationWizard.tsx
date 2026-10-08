@@ -7,10 +7,8 @@ import {
   Camera,
   MapPin,
   Sparkles,
-  Ruler,
   HeartPulse,
   Compass,
-  Wrench,
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
@@ -32,7 +30,6 @@ import { formatCoordinates } from "@/lib/geo";
 import { useToast } from "@/components/providers/ToastProvider";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { savePendingTree } from "@/lib/offline-sync";
-import { predictSpeciesFromPhoto, AISpeciesMatch } from "@/lib/ai-assistant";
 
 interface SpeciesOption {
   id: string;
@@ -125,9 +122,6 @@ export function TreeRegistrationWizard() {
     notes: "",
   });
 
-  // AI suggestions
-  const [aiSuggestions, setAiSuggestions] = useState<AISpeciesMatch[]>([]);
-  const [aiLoading, setAiLoading] = useState(false);
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
 
   // Load projects & species on mount
@@ -218,46 +212,10 @@ export function TreeRegistrationWizard() {
               },
             ],
           }));
-
-          // Trigger AI observation suggestion
-          if (formData.photos.length === 0) {
-            triggerAISuggestion(dataUrl);
-          }
         }
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const triggerAISuggestion = (imageUrl: string) => {
-    setAiLoading(true);
-    setTimeout(() => {
-      const suggestions = predictSpeciesFromPhoto(imageUrl);
-      setAiSuggestions(suggestions);
-      setAiLoading(false);
-    }, 800);
-  };
-
-  const applyAISuggestion = (s: AISpeciesMatch) => {
-    setFormData((prev) => ({
-      ...prev,
-      commonName: s.commonName,
-      scientificName: s.scientificName,
-      family: s.family,
-      nativeStatus: s.nativeStatus,
-      identificationConfidence: s.confidence,
-    }));
-    toast.success(`Applied AI recommendation: ${s.commonName} (${s.confidence}% match)`);
-  };
-
-  // DBH auto-calculation when circumference changes
-  const handleCircumferenceChange = (val: number) => {
-    const dbhVal = parseFloat((val / Math.PI).toFixed(1));
-    setFormData((prev) => ({
-      ...prev,
-      trunkCircumference: val,
-      dbh: dbhVal,
-    }));
   };
 
   // Step Navigation
@@ -270,7 +228,7 @@ export function TreeRegistrationWizard() {
       toast.error("Please specify common and scientific names");
       return;
     }
-    setCurrentStep((prev) => Math.min(prev + 1, 7));
+    setCurrentStep((prev) => Math.min(prev + 1, steps.length));
   };
 
   const prevStep = () => {
@@ -321,7 +279,6 @@ export function TreeRegistrationWizard() {
       nextInspectionDays: 90,
       notes: "",
     });
-    setAiSuggestions([]);
     setResolvedAddress(null);
     setSubmittedTree(null);
     setCurrentStep(1);
@@ -401,11 +358,9 @@ export function TreeRegistrationWizard() {
   const steps = [
     { num: 1, title: "Capture", icon: Camera },
     { num: 2, title: "Identify", icon: Sparkles },
-    { num: 3, title: "Measurements", icon: Ruler },
-    { num: 4, title: "Health", icon: HeartPulse },
-    { num: 5, title: "Environment", icon: Compass },
-    { num: 6, title: "Maintenance", icon: Wrench },
-    { num: 7, title: "Review", icon: CheckCircle2 },
+    { num: 3, title: "Health", icon: HeartPulse },
+    { num: 4, title: "Environment", icon: Compass },
+    { num: 5, title: "Review", icon: CheckCircle2 },
   ];
 
   if (submittedTree) {
@@ -464,7 +419,7 @@ export function TreeRegistrationWizard() {
             Guided Field Survey Workflow
           </span>
           <h1 className="text-xl sm:text-2xl font-bold text-stone-900 dark:text-white mt-0.5">
-            Register Specimen #{steps[currentStep - 1].title}
+            Register Specimen — {steps[currentStep - 1]?.title}
           </h1>
         </div>
 
@@ -705,36 +660,6 @@ export function TreeRegistrationWizard() {
                 </p>
               </div>
 
-              {/* AI Species Identification Assistant Box */}
-              {aiSuggestions.length > 0 && (
-                <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 space-y-2">
-                  <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-200 font-bold text-xs">
-                    <Sparkles className="w-4 h-4 text-emerald-600" />
-                    <span>AI-Assisted Botanical Suggestion</span>
-                    <span className="text-[10px] font-normal text-stone-500">
-                      (Confirm before applying)
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {aiSuggestions.map((s, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => applyAISuggestion(s)}
-                        className="p-2.5 rounded-xl bg-white dark:bg-stone-900 border border-emerald-200 dark:border-emerald-800 hover:border-emerald-500 cursor-pointer text-xs flex items-center justify-between"
-                      >
-                        <div>
-                          <p className="font-bold text-stone-900 dark:text-white">{s.commonName}</p>
-                          <p className="italic text-stone-500 text-[11px]">{s.scientificName}</p>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                          {s.confidence}% match
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* Common Name & Quick Select */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -865,7 +790,7 @@ export function TreeRegistrationWizard() {
             </motion.div>
           )}
 
-          {/* STEP 3: MEASUREMENTS */}
+          {/* STEP 3: HEALTH */}
           {currentStep === 3 && (
             <motion.div
               key="step3"
@@ -876,115 +801,10 @@ export function TreeRegistrationWizard() {
             >
               <div>
                 <h3 className="text-base font-bold text-stone-900 dark:text-white">
-                  Step 3 — Dendrometric Dimensions & Age Estimation
+                  Step 3 — Tree Health & Vitality Assessment
                 </h3>
                 <p className="text-xs text-stone-500 mt-1">
-                  Measure height, trunk girth, and canopy width. DBH is automatically calculated from circumference.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Trunk Circumference & DBH */}
-                <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                      Trunk Circumference (cm at 1.37m height)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={formData.trunkCircumference}
-                      onChange={(e) => handleCircumferenceChange(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 font-mono text-stone-900 dark:text-white outline-none"
-                    />
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-bold text-emerald-900 dark:text-emerald-200">
-                        Computed DBH (Diameter at Breast Height)
-                      </span>
-                      <p className="text-[10px] text-stone-500">Formula: Circumference / π</p>
-                    </div>
-                    <span className="text-base font-bold font-mono text-emerald-700 dark:text-emerald-400">
-                      {formData.dbh} cm
-                    </span>
-                  </div>
-                </div>
-
-                {/* Height & Canopy Spread */}
-                <div className="p-4 rounded-2xl bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                      Tree Height (meters)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={formData.height}
-                      onChange={(e) =>
-                        setFormData({ ...formData, height: parseFloat(e.target.value) || 0 })
-                      }
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 font-mono text-stone-900 dark:text-white outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                      Average Canopy Spread / Width (meters)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={formData.canopyWidth}
-                      onChange={(e) =>
-                        setFormData({ ...formData, canopyWidth: parseFloat(e.target.value) || 0 })
-                      }
-                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 font-mono text-stone-900 dark:text-white outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Estimated Age */}
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                  Estimated Age (Years)
-                </label>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min="1"
-                    max="200"
-                    value={formData.estimatedAge}
-                    onChange={(e) =>
-                      setFormData({ ...formData, estimatedAge: parseInt(e.target.value) })
-                    }
-                    className="flex-1 accent-emerald-600"
-                  />
-                  <span className="font-mono text-sm font-bold text-stone-800 dark:text-stone-200 w-16 text-right">
-                    {formData.estimatedAge} yrs
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* STEP 4: HEALTH */}
-          {currentStep === 4 && (
-            <motion.div
-              key="step4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-5"
-            >
-              <div>
-                <h3 className="text-base font-bold text-stone-900 dark:text-white">
-                  Step 4 — Tree Health & Structural Risk Assessment
-                </h3>
-                <p className="text-xs text-stone-500 mt-1">
-                  Evaluate crown vitality, trunk integrity, disease presence, and structural storm risk.
+                  Evaluate crown vitality, trunk integrity, disease presence, and pest activity.
                 </p>
               </div>
 
@@ -1014,29 +834,6 @@ export function TreeRegistrationWizard() {
                       }`}
                     >
                       <TreeHealthBadge status={h.id} size="sm" showDotOnly={false} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Risk Level */}
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1.5">
-                  Public Structural Risk Level
-                </label>
-                <div className="flex gap-2">
-                  {["LOW", "MODERATE", "HIGH", "EXTREME"].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, riskLevel: r as any })}
-                      className={`flex-1 py-2 text-xs font-bold rounded-xl border transition-colors ${
-                        formData.riskLevel === r
-                          ? "bg-stone-900 dark:bg-white text-white dark:text-stone-900 border-transparent shadow-xs"
-                          : "border-stone-200 dark:border-stone-800 text-stone-600 hover:bg-stone-50"
-                      }`}
-                    >
-                      {r}
                     </button>
                   ))}
                 </div>
@@ -1098,10 +895,10 @@ export function TreeRegistrationWizard() {
             </motion.div>
           )}
 
-          {/* STEP 5: ENVIRONMENT */}
-          {currentStep === 5 && (
+          {/* STEP 4: ENVIRONMENT */}
+          {currentStep === 4 && (
             <motion.div
-              key="step5"
+              key="step4"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -1109,7 +906,7 @@ export function TreeRegistrationWizard() {
             >
               <div>
                 <h3 className="text-base font-bold text-stone-900 dark:text-white">
-                  Step 5 — Environmental & Microclimate Context
+                  Step 4 — Environmental & Microclimate Context
                 </h3>
                 <p className="text-xs text-stone-500 mt-1">
                   Document surrounding edaphic conditions, sunlight, and surrounding urban infrastructure.
@@ -1172,95 +969,28 @@ export function TreeRegistrationWizard() {
                     placeholder="e.g. Walkway, Overhead wires, Building facade"
                   />
                 </div>
-              </div>
-            </motion.div>
-          )}
 
-          {/* STEP 6: MAINTENANCE */}
-          {currentStep === 6 && (
-            <motion.div
-              key="step6"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-4"
-            >
-              <div>
-                <h3 className="text-base font-bold text-stone-900 dark:text-white">
-                  Step 6 — Care Schedule & Maintenance Requirements
-                </h3>
-                <p className="text-xs text-stone-500 mt-1">
-                  Tag urgent arboricultural interventions and schedule next recurring inspection.
-                </p>
-              </div>
-
-              {/* Action Checkboxes */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { key: "irrigationRequired", label: "💧 Irrigation / Deep Watering Required" },
-                  { key: "pruningRequired", label: "✂️ Clearance / Deadwood Pruning Required" },
-                  { key: "fertilizationRequired", label: "🌱 Organic Fertilization / Mulch Required" },
-                  { key: "pestControlRequired", label: "🛡️ Bio-Pest Control Treatment Required" },
-                  { key: "supportRequired", label: "🏗️ Guy-wire / Structural Support Required" },
-                ].map((item) => (
-                  <label
-                    key={item.key}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-stone-950/40 cursor-pointer hover:bg-stone-100 transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={(formData as any)[item.key]}
-                      onChange={(e) =>
-                        setFormData({ ...formData, [item.key]: e.target.checked })
-                      }
-                      className="w-4 h-4 rounded text-emerald-600 accent-emerald-600"
-                    />
-                    <span className="text-xs font-semibold text-stone-800 dark:text-stone-200">
-                      {item.label}
-                    </span>
+                {/* Field Notes */}
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
+                    Surveyor Observations & Field Notes
                   </label>
-                ))}
-              </div>
-
-              {/* Next Inspection */}
-              <div className="pt-2">
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                  Schedule Next Field Inspection
-                </label>
-                <select
-                  value={formData.nextInspectionDays}
-                  onChange={(e) =>
-                    setFormData({ ...formData, nextInspectionDays: parseInt(e.target.value) })
-                  }
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-white outline-none"
-                >
-                  <option value={14}>In 14 days (Urgent follow-up)</option>
-                  <option value={30}>In 1 month (Standard monthly)</option>
-                  <option value={90}>In 3 months (Quarterly survey)</option>
-                  <option value={180}>In 6 months (Semi-annual survey)</option>
-                </select>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-semibold text-stone-700 dark:text-stone-300 mb-1">
-                  Surveyor Observations & Field Notes
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-white outline-none"
-                  placeholder="Notes regarding wildlife nesting, seasonal flowering, local cultural significance..."
-                />
+                  <textarea
+                    rows={2}
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 text-stone-900 dark:text-white outline-none"
+                    placeholder="Notes regarding location landmarks, flowering, local context..."
+                  />
+                </div>
               </div>
             </motion.div>
           )}
 
-          {/* STEP 7: REVIEW & SUBMIT */}
-          {currentStep === 7 && (
+          {/* STEP 5: REVIEW & SUBMIT */}
+          {currentStep === 5 && (
             <motion.div
-              key="step7"
+              key="step5"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -1268,10 +998,10 @@ export function TreeRegistrationWizard() {
             >
               <div>
                 <h3 className="text-base font-bold text-stone-900 dark:text-white">
-                  Step 7 — Review Specimen Registry Record
+                  Step 5 — Review Specimen Registry Record
                 </h3>
                 <p className="text-xs text-stone-500 mt-1">
-                  Verify the integrity of collected coordinates, botanical identification, and measurements before commiting.
+                  Verify the integrity of collected coordinates, botanical identification, and health status before committing.
                 </p>
               </div>
 
@@ -1309,26 +1039,26 @@ export function TreeRegistrationWizard() {
                   </div>
                   <div>
                     <span className="block text-[10px] text-stone-400 uppercase font-semibold">
-                      Height & DBH
+                      Health Rating
                     </span>
                     <span className="font-semibold text-stone-800 dark:text-stone-200">
-                      {formData.height}m / {formData.dbh}cm
+                      {formData.healthStatus}
                     </span>
                   </div>
                   <div>
                     <span className="block text-[10px] text-stone-400 uppercase font-semibold">
-                      Canopy Spread
+                      Sunlight
                     </span>
                     <span className="font-semibold text-stone-800 dark:text-stone-200">
-                      {formData.canopyWidth}m
+                      {formData.sunlight}
                     </span>
                   </div>
                   <div>
                     <span className="block text-[10px] text-stone-400 uppercase font-semibold">
-                      Est. Age
+                      Soil Context
                     </span>
-                    <span className="font-semibold text-stone-800 dark:text-stone-200">
-                      ~{formData.estimatedAge} years
+                    <span className="font-semibold text-stone-800 dark:text-stone-200 truncate block">
+                      {formData.soilCondition || "Standard soil"}
                     </span>
                   </div>
                 </div>
@@ -1367,7 +1097,7 @@ export function TreeRegistrationWizard() {
             <span>Previous</span>
           </button>
 
-          {currentStep < 7 ? (
+          {currentStep < steps.length ? (
             <button
               type="button"
               onClick={nextStep}
